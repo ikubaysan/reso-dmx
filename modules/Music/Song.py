@@ -23,7 +23,7 @@ class Song:
         self.directory = directory
         self.title = ""
         self.artist = ""
-        self.bpms: List[Tuple[float, float]] = []
+        self.bpms: List[Tuple[float, float]] = [] # eg [(0.0, 137.7), (4.0, 138.0)]
         self.charts: List[Chart] = []
         self.duration: float = 0.0  # Song duration in seconds
 
