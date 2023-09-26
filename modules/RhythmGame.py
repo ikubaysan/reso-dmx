@@ -9,8 +9,20 @@ FPS = 60
 WHITE = (255, 255, 255)
 ARROW_WIDTH = 50
 ARROW_HEIGHT = 20
-ARROW_SPEED = 5
+ARROW_SPEED = 10
 HORIZONTAL_SPACING = 100  # Adjust this value to control horizontal spacing
+
+class MeasureLine:
+    def __init__(self, x, speed):
+        self.x = x
+        self.y = WINDOW_HEIGHT
+        self.speed = speed
+
+    def move(self):
+        self.y -= self.speed
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, (0, 0, 255), (0, self.y, WINDOW_WIDTH, 2))
 
 class RhythmGame:
     def __init__(self, song: Song):
@@ -21,7 +33,9 @@ class RhythmGame:
         self.window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption(f"Rhythm Game - {self.song.name}")
         self.arrows = []  # List to store arrow positions
+        self.measure_lines = []  # List to store measure lines
         self.current_arrow_index = 0
+        self.current_measure_line_index = 0
         self.score = 0
         self.song_time = 0.0  # Current song time in seconds
         self.init_bpm()
@@ -61,6 +75,13 @@ class RhythmGame:
                     self.measure_duration = len(self.measures[self.current_measure]) * (60 / self.current_bpm)
                     self.measure_start_time = self.song_time
 
+            # Check if it's time to add a new measure line
+            if self.current_measure_line_index < self.current_measure:
+                x = self.current_measure_line_index * HORIZONTAL_SPACING + 100
+                measure_line = MeasureLine(x, ARROW_SPEED)
+                self.measure_lines.append(measure_line)
+                self.current_measure_line_index += 1
+
     def spawn_arrows(self):
         if self.current_measure < len(self.measures):
             measure = self.measures[self.current_measure]
@@ -80,6 +101,9 @@ class RhythmGame:
     def remove_past_arrows(self):
         self.arrows = [arrow for arrow in self.arrows if arrow.y > -ARROW_HEIGHT]
 
+    def remove_past_measure_lines(self):
+        self.measure_lines = [line for line in self.measure_lines if line.x < WINDOW_WIDTH]
+
     def run(self):
         running = True
         while running:
@@ -98,10 +122,18 @@ class RhythmGame:
             # Remove arrows that have gone off the screen
             self.remove_past_arrows()
 
+            # Remove measure lines that have gone off the screen
+            self.remove_past_measure_lines()
+
             # Move and draw arrows
             for arrow in self.arrows:
                 arrow.move()
                 arrow.draw(self.window)
+
+            # Move and draw measure lines
+            for measure_line in self.measure_lines:
+                measure_line.move()
+                measure_line.draw(self.window)
 
             # Update the display
             pygame.display.flip()
