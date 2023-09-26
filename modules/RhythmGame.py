@@ -87,11 +87,11 @@ class RhythmGame:
                     measure_line = MeasureLine(x, ARROW_SPEED)
                     self.measure_lines.append(measure_line)
                     self.current_measure_line_index += 1
-                    print(f"Current measure: {self.current_measure}")
+                    # print(f"Current measure: {self.current_measure}")
 
             measure = self.measures[self.current_measure]
             time_per_beat = self.measure_duration / len(measure)
-            if self.song_time >= self.beat_start_time + time_per_beat and self.current_beat_index < len(measure):
+            if self.song_time >= self.beat_start_time + time_per_beat:
                 current_beat = measure[self.current_beat_index]
                 for i, note in enumerate(current_beat):
                     if note == "1":
