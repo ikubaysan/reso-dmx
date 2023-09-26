@@ -22,7 +22,8 @@ class SongPlayerApp:
 
         # Initialize song data
         self.groups = []
-        self.selected_song = None
+        self.selected_group_index = None
+        self.selected_song_index = None
 
         # Create and configure the main frame
         self.main_frame = tk.Frame(root)
@@ -41,7 +42,7 @@ class SongPlayerApp:
         self.group_select_button = tk.Button(self.group_frame, text="Select Directory", command=self.select_directory)
         self.group_select_button.pack()
 
-        self.group_listbox.bind("<<ListboxSelect>>", self.select_song)
+        self.group_listbox.bind("<<ListboxSelect>>", self.select_group)
 
         # Create and configure the song selection frame
         self.song_frame = tk.Frame(self.main_frame)
@@ -55,6 +56,8 @@ class SongPlayerApp:
 
         self.play_button = tk.Button(self.song_frame, text="Play Song", command=self.play_song)
         self.play_button.pack()
+
+        self.song_listbox.bind("<<ListboxSelect>>", self.select_song_from_listbox)
 
     def load_songs(self, root_directory):
         self.groups = find_songs(root_directory)
@@ -74,22 +77,32 @@ class SongPlayerApp:
         for group in self.groups:
             self.group_listbox.insert(tk.END, group.name)
 
-    def select_song(self, event):
+    def select_group(self, event):
         selected_group_index = self.group_listbox.curselection()
-        selected_song_index = self.song_listbox.curselection()
         if selected_group_index:
-            selected_group = self.groups[selected_group_index[0]]
+            self.selected_group_index = selected_group_index[0]
+            selected_group = self.groups[self.selected_group_index]
             self.song_listbox.delete(0, tk.END)  # Clear the current songs list
             for song in selected_group.songs:
                 self.song_listbox.insert(tk.END, song.name)  # Add songs to the listbox
-            if selected_song_index:
-                self.song_listbox.select_set(selected_song_index[0])  # Restore the selected song
+            self.selected_song_index = None
 
     def play_song(self):
-        if self.selected_song:
-            logger.info(f"Playing song: {self.selected_song.name}")
-            pygame.mixer.music.load(os.path.join(self.selected_song.directory, self.selected_song.audio_file))
-            pygame.mixer.music.play()
+        if self.selected_group_index is not None and self.selected_song_index is not None:
+            selected_group = self.groups[self.selected_group_index]
+            if 0 <= self.selected_song_index < len(selected_group.songs):
+                selected_song = selected_group.songs[self.selected_song_index]
+                logger.info(f"Playing song: {selected_song.name}")
+                pygame.mixer.music.load(os.path.join(selected_song.directory, selected_song.audio_file))
+                pygame.mixer.music.play()
+        else:
+            logger.info("No song selected")
+
+    def select_song_from_listbox(self, event):
+        selected_song_index = self.song_listbox.curselection()
+        if selected_song_index:
+            self.selected_song_index = selected_song_index[0]
+            logger.info(f"Selected song index: {self.selected_song_index}")
 
 
 if __name__ == "__main__":
