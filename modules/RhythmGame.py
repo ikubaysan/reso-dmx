@@ -8,8 +8,8 @@ WINDOW_HEIGHT = 600
 FPS = 60
 WHITE = (255, 255, 255)
 ARROW_WIDTH = 50
-ARROW_HEIGHT = 20
-ARROW_SPEED = 10
+ARROW_HEIGHT = 1
+ARROW_SPEED = 25
 HORIZONTAL_SPACING = 100  # Adjust this value to control horizontal spacing
 
 class MeasureLine:
@@ -27,6 +27,8 @@ class MeasureLine:
 class RhythmGame:
     def __init__(self, song: Song):
         pygame.init()
+        pygame.mixer.init()
+        self.clap_sound = pygame.mixer.Sound(r"..\assets\clap.ogg")
         self.song = song
         self.song.load_charts()
         self.clock = pygame.time.Clock()
@@ -36,6 +38,7 @@ class RhythmGame:
         self.measure_lines = []  # List to store measure lines
         self.current_arrow_index = 0
         self.current_measure_line_index = 0
+        self.current_beat_index = 0  # Initialize current_beat_index
         self.score = 0
         self.song_time = 0.0  # Current song time in seconds
         self.init_bpm()
@@ -74,6 +77,7 @@ class RhythmGame:
                 if self.current_measure < len(self.measures):
                     self.measure_duration = len(self.measures[self.current_measure]) * (60 / self.current_bpm)
                     self.measure_start_time = self.song_time
+                    self.current_beat_index = 0  # Reset current_beat_index
 
             # Check if it's time to add a new measure line
             if self.current_measure_line_index < self.current_measure:
@@ -88,18 +92,26 @@ class RhythmGame:
             beats_in_measure = len(measure)
             time_per_beat = (60 / self.current_bpm) / beats_in_measure
 
-            current_beat_index = int((self.song_time - self.measure_start_time) / time_per_beat)
-
-            if current_beat_index < beats_in_measure:
-                current_beat = measure[current_beat_index]
-                for i, note in enumerate(current_beat):
-                    if note == "1":
-                        x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
-                        arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
-                        self.arrows.append(arrow)
+            while self.current_beat_index < beats_in_measure:
+                beat_time = self.measure_start_time + self.current_beat_index * time_per_beat
+                if beat_time <= self.song_time < beat_time + time_per_beat:
+                    current_beat = measure[self.current_beat_index]
+                    for i, note in enumerate(current_beat):
+                        if note == "1":
+                            x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
+                            arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
+                            self.arrows.append(arrow)
+                    self.current_beat_index += 1
+                else:
+                    break
 
     def remove_past_arrows(self):
+        before_len = len(self.arrows)
         self.arrows = [arrow for arrow in self.arrows if arrow.y > -ARROW_HEIGHT]
+        after_len = len(self.arrows)
+        if before_len > after_len:
+            # Play clap sound when arrows are removed
+            self.clap_sound.play()
 
     def remove_past_measure_lines(self):
         self.measure_lines = [line for line in self.measure_lines if line.x < WINDOW_WIDTH]
