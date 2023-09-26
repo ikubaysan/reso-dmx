@@ -75,16 +75,18 @@ class RhythmGame:
             if self.song_time >= self.measure_start_time + self.measure_duration:
                 self.current_measure += 1
                 if self.current_measure < len(self.measures):
-                    self.measure_duration = len(self.measures[self.current_measure]) * (60 / self.current_bpm)
+                    measure = self.measures[self.current_measure]
+                    beats_in_measure = len(measure)
+                    self.measure_duration = (self.current_bpm / 4) / 60
+                    #self.measure_duration = len(self.measures[self.current_measure]) * (60 / self.current_bpm)
                     self.measure_start_time = self.song_time
                     self.current_beat_index = 0  # Reset current_beat_index
 
-            # Check if it's time to add a new measure line
-            if self.current_measure_line_index < self.current_measure:
-                x = self.current_measure_line_index * HORIZONTAL_SPACING + 100
-                measure_line = MeasureLine(x, ARROW_SPEED)
-                self.measure_lines.append(measure_line)
-                self.current_measure_line_index += 1
+                    ## Add a new measure line
+                    x = self.current_measure_line_index * HORIZONTAL_SPACING + 100
+                    measure_line = MeasureLine(x, ARROW_SPEED)
+                    self.measure_lines.append(measure_line)
+                    self.current_measure_line_index += 1
 
     def spawn_arrows(self):
         if self.current_measure < len(self.measures):
@@ -92,6 +94,7 @@ class RhythmGame:
             beats_in_measure = len(measure)
             time_per_beat = (60 / self.current_bpm) / beats_in_measure
 
+            # Spawn arrows if within the current measure
             while self.current_beat_index < beats_in_measure:
                 beat_time = self.measure_start_time + self.current_beat_index * time_per_beat
                 if beat_time <= self.song_time < beat_time + time_per_beat:
