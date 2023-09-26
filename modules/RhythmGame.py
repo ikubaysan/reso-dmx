@@ -78,18 +78,16 @@ class RhythmGame:
 
             # Check if it's time to move to the next measure
             if self.song_time >= self.measure_start_time + self.measure_duration:
-                self.current_measure += 1
                 if self.current_measure < len(self.measures):
-                    #beats_in_measure = len(measure)
-
+                    self.current_measure += 1
                     self.measure_duration = 4 * (60 / self.current_bpm) # Assume 4 beats per measure
                     self.measure_start_time = self.song_time
                     self.current_beat_index = 0  # Reset current_beat_index
-                    ## Add a new measure line
                     x = self.current_measure_line_index * HORIZONTAL_SPACING + 100
                     measure_line = MeasureLine(x, ARROW_SPEED)
                     self.measure_lines.append(measure_line)
                     self.current_measure_line_index += 1
+                    print(f"Current measure: {self.current_measure}")
 
             measure = self.measures[self.current_measure]
             time_per_beat = self.measure_duration / len(measure)
@@ -103,8 +101,6 @@ class RhythmGame:
                 self.current_beat_index += 1
                 self.beat_start_time = self.song_time
 
-
-
     def remove_past_arrows(self):
         before_len = len(self.arrows)
         self.arrows = [arrow for arrow in self.arrows if arrow.y > -ARROW_HEIGHT]
@@ -114,7 +110,7 @@ class RhythmGame:
             self.clap_sound.play()
 
     def remove_past_measure_lines(self):
-        self.measure_lines = [line for line in self.measure_lines if line.x < WINDOW_WIDTH]
+        self.measure_lines = [line for line in self.measure_lines if line.y > 0]
 
     def run(self):
         running = True
