@@ -9,7 +9,7 @@ FPS = 60
 WHITE = (255, 255, 255)
 ARROW_WIDTH = 50
 ARROW_HEIGHT = 1
-ARROW_SPEED = 25
+ARROW_SPEED = 10
 HORIZONTAL_SPACING = 100  # Adjust this value to control horizontal spacing
 
 class MeasureLine:
@@ -59,6 +59,7 @@ class RhythmGame:
         self.measure_duration = 0
         self.measures = self.current_chart.measures  # Get the measures from the chart
         self.measure_start_time = 0.0  # Time when the current measure started
+        self.beat_start_time = 0.0  # Time when the current beat started
 
     def update_song_time(self):
         if self.current_bpm:
@@ -71,13 +72,21 @@ class RhythmGame:
                 else:
                     self.next_bpm_change = None
 
+
+            beats_in_measure = len(self.measures[self.current_measure]) if self.current_measure < len(
+                self.measures) else 0
+            time_per_beat = (60 / self.current_bpm) / beats_in_measure if beats_in_measure > 0 else 0
+
             # Check if it's time to move to the next measure
             if self.song_time >= self.measure_start_time + self.measure_duration:
                 self.current_measure += 1
                 if self.current_measure < len(self.measures):
-                    measure = self.measures[self.current_measure]
-                    beats_in_measure = len(measure)
-                    self.measure_duration = (self.current_bpm / 4) / 60
+                    #beats_in_measure = len(measure)
+
+                    beats_in_measure = len(self.measures[self.current_measure]) if self.current_measure < len(self.measures) else 0
+                    self.measure_duration = beats_in_measure * (60 / self.current_bpm)
+
+                    #self.measure_duration = (self.current_bpm / 6) / 60
                     #self.measure_duration = len(self.measures[self.current_measure]) * (60 / self.current_bpm)
                     self.measure_start_time = self.song_time
                     self.current_beat_index = 0  # Reset current_beat_index
@@ -88,25 +97,18 @@ class RhythmGame:
                     self.measure_lines.append(measure_line)
                     self.current_measure_line_index += 1
 
-    def spawn_arrows(self):
-        if self.current_measure < len(self.measures):
             measure = self.measures[self.current_measure]
-            beats_in_measure = len(measure)
-            time_per_beat = (60 / self.current_bpm) / beats_in_measure
+            if self.song_time >= self.beat_start_time + time_per_beat and self.current_beat_index < len(measure):
+                current_beat = measure[self.current_beat_index]
+                for i, note in enumerate(current_beat):
+                    if note == "1":
+                        x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
+                        arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
+                        self.arrows.append(arrow)
+                self.current_beat_index += 1
+                self.beat_start_time = self.song_time
 
-            # Spawn arrows if within the current measure
-            while self.current_beat_index < beats_in_measure:
-                beat_time = self.measure_start_time + self.current_beat_index * time_per_beat
-                if beat_time <= self.song_time < beat_time + time_per_beat:
-                    current_beat = measure[self.current_beat_index]
-                    for i, note in enumerate(current_beat):
-                        if note == "1":
-                            x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
-                            arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
-                            self.arrows.append(arrow)
-                    self.current_beat_index += 1
-                else:
-                    break
+
 
     def remove_past_arrows(self):
         before_len = len(self.arrows)
@@ -130,9 +132,6 @@ class RhythmGame:
             self.window.fill(WHITE)
 
             self.update_song_time()
-
-            # Spawn new arrows based on song time and BPM
-            self.spawn_arrows()
 
             # Remove arrows that have gone off the screen
             self.remove_past_arrows()
