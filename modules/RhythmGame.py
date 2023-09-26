@@ -169,6 +169,7 @@ class Arrow:
     def draw(self, surface):
         pygame.draw.rect(surface, (255, 0, 0), (self.x, self.y, ARROW_WIDTH, ARROW_HEIGHT))
 
+
 if __name__ == "__main__":
     # Replace with the actual Song object
     selected_song = Song(name="bass 2 bass",
