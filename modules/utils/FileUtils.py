@@ -2,8 +2,9 @@ import os
 from typing import Tuple, List, Dict, Any
 from mutagen.id3 import ID3
 from mutagen.oggvorbis import OggVorbis
-from modules.Group import Group
-from modules.Song import Song
+from modules.Music.Group import Group
+from modules.Music.Song import Song
+from modules.Music.Chart import Chart
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,12 +50,12 @@ def parse_sm_file(sm_file_path: str) -> Tuple[str, str, List[Tuple[float, float]
                 elif line == ";":
                     in_notes_section = False
                     if current_mode and current_difficulty_name and current_difficulty_level:
-                        chart = {
-                            "mode": current_mode,
-                            "difficulty_name": current_difficulty_name,
-                            "difficulty_level": current_difficulty_level,
-                            "notes": notes_data,
-                        }
+                        chart = Chart(
+                            mode=current_mode,
+                            difficulty_name=current_difficulty_name,
+                            difficulty_level=current_difficulty_level,
+                            notes=notes_data
+                        )
                         charts.append(chart)
                         current_difficulty_name = ""  # Reset difficulty name
                         current_difficulty_level = 0  # Reset difficulty level
