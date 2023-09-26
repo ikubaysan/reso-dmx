@@ -2,7 +2,11 @@ import os
 from typing import List, Tuple, Dict, Any
 from mutagen.oggvorbis import OggVorbis
 from mutagen.id3 import ID3
+from modules.Loggers import configure_console_logger
+import logging
 
+configure_console_logger()
+logger = logging.getLogger(__name__)
 
 class Song:
     def __init__(self, name: str, audio_file: str, sm_file: str, directory: str):
@@ -82,10 +86,6 @@ def parse_sm_file(sm_file_path: str) -> Tuple[str, str, List[Tuple[float, float]
 
 
 
-
-
-
-
 def get_audio_duration(audio_file_path: str) -> float:
     try:
         if audio_file_path.endswith('.mp3'):
@@ -95,7 +95,7 @@ def get_audio_duration(audio_file_path: str) -> float:
             audio = OggVorbis(audio_file_path)
             return float(audio.info.length)
     except Exception as e:
-        print(f"Error reading audio duration: {str(e)}")
+        logger.info(f"Error reading audio duration: {str(e)}")
     return 0.0
 
 
@@ -139,11 +139,11 @@ def main():
 
     total_songs = sum(len(group.songs) for group in groups)
 
-    print(f"Found {total_songs} songs in {len(groups)} groups.")
+    logger.info(f"Found {total_songs} songs in {len(groups)} groups.")
     for group in groups:
-        print(f"Group: {group.name}, Songs: {len(group.songs)}")
+        logger.info(f"Group: {group.name}, Songs: {len(group.songs)}")
         for song in group.songs:
-            print(f"Song: {song.name}, Duration: {song.duration} seconds")
+            logger.info(f"Song: {song.name}, Duration: {song.duration} seconds")
 
     return
 
