@@ -62,8 +62,12 @@ class RhythmGame:
         self.beat_start_time = 0.0  # Time when the current beat started
 
     def update_song_time(self):
+        """
+        Call this once per frame, at the FPS framerate.
+        :return:
+        """
         if self.current_bpm:
-            self.song_time += 1 / (self.current_bpm / 60) / FPS  # Increment song time based on current BPM
+            self.song_time += 1 / FPS
 
             if self.next_bpm_change and self.song_time >= self.next_bpm_change:
                 self.current_bpm = self.song.bpms[1][1]
@@ -72,25 +76,15 @@ class RhythmGame:
                 else:
                     self.next_bpm_change = None
 
-
-            beats_in_measure = len(self.measures[self.current_measure]) if self.current_measure < len(
-                self.measures) else 0
-            time_per_beat = (60 / self.current_bpm) / beats_in_measure if beats_in_measure > 0 else 0
-
             # Check if it's time to move to the next measure
             if self.song_time >= self.measure_start_time + self.measure_duration:
                 self.current_measure += 1
                 if self.current_measure < len(self.measures):
                     #beats_in_measure = len(measure)
 
-                    beats_in_measure = len(self.measures[self.current_measure]) if self.current_measure < len(self.measures) else 0
-                    self.measure_duration = beats_in_measure * (60 / self.current_bpm)
-
-                    #self.measure_duration = (self.current_bpm / 6) / 60
-                    #self.measure_duration = len(self.measures[self.current_measure]) * (60 / self.current_bpm)
+                    self.measure_duration = 4 * (60 / self.current_bpm) # Assume 4 beats per measure
                     self.measure_start_time = self.song_time
                     self.current_beat_index = 0  # Reset current_beat_index
-
                     ## Add a new measure line
                     x = self.current_measure_line_index * HORIZONTAL_SPACING + 100
                     measure_line = MeasureLine(x, ARROW_SPEED)
@@ -98,6 +92,7 @@ class RhythmGame:
                     self.current_measure_line_index += 1
 
             measure = self.measures[self.current_measure]
+            time_per_beat = self.measure_duration / len(measure)
             if self.song_time >= self.beat_start_time + time_per_beat and self.current_beat_index < len(measure):
                 current_beat = measure[self.current_beat_index]
                 for i, note in enumerate(current_beat):
