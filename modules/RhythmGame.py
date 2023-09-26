@@ -25,6 +25,7 @@ class RhythmGame:
         self.score = 0
         self.song_time = 0.0  # Current song time in seconds
         self.init_bpm()
+        self.init_chart()
 
     def init_bpm(self):
         self.current_bpm = None
@@ -34,14 +35,13 @@ class RhythmGame:
             if len(self.song.bpms) > 1:
                 self.next_bpm_change = self.song.bpms[1][0]
 
-    def load_arrows(self):
-        chart = self.song.charts[0]  # Adjust the chart index as needed
-        for note_row in chart.notes:
-            for i, note in enumerate(note_row):
-                if note == "1":
-                    x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
-                    arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
-                    self.arrows.append(arrow)
+    def init_chart(self):
+        self.current_chart = self.song.charts[3]  # Hardcoding 3 for now
+        self.current_chart_index = 0
+        self.current_measure = 0
+        self.measure_duration = 0
+        self.measures = self.current_chart.measures  # Get the measures from the chart
+        self.measure_start_time = 0.0  # Time when the current measure started
 
     def update_song_time(self):
         if self.current_bpm:
@@ -53,6 +53,32 @@ class RhythmGame:
                     self.next_bpm_change = self.song.bpms[2][0]
                 else:
                     self.next_bpm_change = None
+
+            # Check if it's time to move to the next measure
+            if self.song_time >= self.measure_start_time + self.measure_duration:
+                self.current_measure += 1
+                if self.current_measure < len(self.measures):
+                    self.measure_duration = len(self.measures[self.current_measure]) * (60 / self.current_bpm)
+                    self.measure_start_time = self.song_time
+
+    def spawn_arrows(self):
+        if self.current_measure < len(self.measures):
+            measure = self.measures[self.current_measure]
+            beats_in_measure = len(measure)
+            time_per_beat = (60 / self.current_bpm) / beats_in_measure
+
+            current_beat_index = int((self.song_time - self.measure_start_time) / time_per_beat)
+
+            if current_beat_index < beats_in_measure:
+                current_beat = measure[current_beat_index]
+                for i, note in enumerate(current_beat):
+                    if note == "1":
+                        x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
+                        arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
+                        self.arrows.append(arrow)
+
+    def remove_past_arrows(self):
+        self.arrows = [arrow for arrow in self.arrows if arrow.y > -ARROW_HEIGHT]
 
     def run(self):
         running = True
@@ -66,6 +92,12 @@ class RhythmGame:
 
             self.update_song_time()
 
+            # Spawn new arrows based on song time and BPM
+            self.spawn_arrows()
+
+            # Remove arrows that have gone off the screen
+            self.remove_past_arrows()
+
             # Move and draw arrows
             for arrow in self.arrows:
                 arrow.move()
@@ -78,7 +110,6 @@ class RhythmGame:
             self.clock.tick(FPS)
 
     def start(self):
-        self.load_arrows()
         self.run()
         pygame.quit()
 
@@ -96,9 +127,9 @@ class Arrow:
 
 if __name__ == "__main__":
     # Replace with the actual Song object
-    selected_song = Song(name="Bad Apple",
-                         audio_file="Bad Apple!! feat. nomico.ogg",
-                         sm_file="Bad Apple!! feat. nomico.sm",
-                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\Bad Apple!! feat. nomico")
+    selected_song = Song(name="bass 2 bass",
+                         audio_file="bass 2 bass.ogg",
+                         sm_file="bass 2 bass.sm",
+                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\bass 2 bass")
     game = RhythmGame(selected_song)
     game.start()

@@ -54,6 +54,7 @@ class Song:
             current_difficulty_name = ""
             current_difficulty_level = 0
             notes_data = []
+            measures = []  # List to store notes for the current measure
 
             for line in sm_file:
                 line = line.strip()
@@ -68,17 +69,16 @@ class Song:
                 elif line.startswith("#NOTES:"):
                     in_notes_section = True
                 elif in_notes_section:
-                    if line.startswith("dance-single:"):
-                        current_mode = "dance-single"
-                    elif line.startswith("dance-double:"):
-                        current_mode = "dance-double"
+                    if line.startswith("dance-single:") or line.startswith("dance-double:"):
+                        current_mode = line.strip()  # Set the current mode
                     elif line.endswith(":") and len(line) > 0 and current_difficulty_name == "":
                         current_difficulty_name = line.rstrip(':').strip()
                     elif line[:-1].isdigit() and current_difficulty_level == 0:
                         # Check if the line (excluding the last character) is a digit. Only set if it has not been set yet.
                         current_difficulty_level = int(line[:-1])
-                    elif line == ",":  # Skip the comma separator
-                        continue
+                    elif line == ",":  # End of measure
+                        measures.append(notes_data)  # Add notes data for the current measure
+                        notes_data = []  # Reset notes data for the next measure
                     elif line == ";":
                         in_notes_section = False
                         if current_mode and current_difficulty_name and current_difficulty_level:
@@ -86,12 +86,13 @@ class Song:
                                 mode=current_mode,
                                 difficulty_name=current_difficulty_name,
                                 difficulty_level=current_difficulty_level,
-                                notes=notes_data
+                                measures=measures  # Store measures as a list
                             )
                             charts.append(chart)
                             current_difficulty_name = ""  # Reset difficulty name
                             current_difficulty_level = 0  # Reset difficulty level
                             notes_data = []  # Reset notes data
+                            measures = []  # Reset measures
                     elif line.isnumeric():
                         # Capture the notes data, which looks like 0000
                         notes_data.append(line)
