@@ -1,10 +1,10 @@
+
 import os
 import tkinter as tk
 from tkinter import filedialog
 import pygame
-from modules.Music.Group import Group
+from modules.Music.Group import Group, find_songs
 from modules.Music.Song import Song
-from modules.utils.FileUtils import find_songs
 from modules.utils.Loggers import configure_console_logger
 import logging
 
