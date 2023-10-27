@@ -10,7 +10,7 @@ WHITE = (255, 255, 255)
 ARROW_WIDTH = 50
 ARROW_HEIGHT = 1
 ARROW_SPEED = 10
-HORIZONTAL_SPACING = 100  # Adjust this value to control horizontal spacing
+HORIZONTAL_SPACING = 100 # Horizontal spacing between note lanes
 
 class MeasureLine:
     def __init__(self, x, speed):
@@ -168,6 +168,7 @@ if __name__ == "__main__":
     selected_song = Song(name="bass 2 bass",
                          audio_file="bass 2 bass.ogg",
                          sm_file="bass 2 bass.sm",
-                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\bass 2 bass")
+                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\bass 2 bass",
+                         id=0)
     game = RhythmGame(selected_song)
     game.start()
