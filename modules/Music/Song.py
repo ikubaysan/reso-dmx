@@ -1,5 +1,6 @@
 from typing import List, Tuple
 from modules.Music.Chart import Chart
+from uuid import uuid4
 import os
 from typing import Tuple, List, Dict, Any
 from mutagen.id3 import ID3
@@ -8,9 +9,10 @@ from modules.Music.Chart import Chart
 import logging
 
 logger = logging.getLogger(__name__)
+current_id = 0
 
 class Song:
-    def __init__(self, name: str, audio_file: str, sm_file: str, directory: str):
+    def __init__(self, name: str, audio_file: str, sm_file: str, directory: str, id: int):
         """
         :param name: The name of the song
         :param audio_file: The audio file filename
@@ -24,9 +26,11 @@ class Song:
         self.title = ""
         self.artist = ""
         self.bpms: List[Tuple[float, float]] = [] # eg [(0.0, 137.7), (4.0, 138.0)]
+        self.min_bpm = 0.0
+        self.max_bpm = 0.0
         self.charts: List[Chart] = []
         self.duration: float = 0.0  # Song duration in seconds
-
+        self.id = id
 
     def load_charts(self):
         """
@@ -37,6 +41,8 @@ class Song:
         title, artist, bpms, charts = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
         self.title = title
         self.artist = artist
+        self.min_bpm = min(item[1] for item in bpms)
+        self.max_bpm = max(item[1] for item in bpms)
         self.bpms = bpms
         self.charts = charts
         self.duration = self.get_audio_duration(os.path.join(self.directory, self.audio_file))
@@ -60,8 +66,10 @@ class Song:
                 line = line.strip()
                 if line.startswith("#TITLE:"):
                     title = line.split(":")[1].strip()
+                    title = title.rstrip(';')
                 elif line.startswith("#ARTIST:"):
                     artist = line.split(":")[1].strip()
+                    artist = artist.rstrip(';')
                 elif line.startswith("#BPMS:"):
                     bpms_data = line.split(":")[1].strip()
                     bpms_data = bpms_data.rstrip(';')

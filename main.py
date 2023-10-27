@@ -1,4 +1,4 @@
-from modules.utils.FileUtils import find_songs
+from modules.Music.Group import Group, find_songs
 from modules.utils.Loggers import configure_console_logger
 import logging
 
