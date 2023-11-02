@@ -31,6 +31,8 @@ class Song:
         self.charts: List[Chart] = []
         self.duration: float = 0.0  # Song duration in seconds
         self.id = id
+        # self.detect_banner()
+        # self.detect_jacket()
 
     def load_charts(self):
         """

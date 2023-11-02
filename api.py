@@ -67,6 +67,27 @@ def get_song_artist(group_idx, song_idx):
     return group.songs[song_idx].artist
 
 
+@app.route('/groups/<int:group_idx>/songs/<int:song_idx>/details', methods=['GET'])
+def get_song_details(group_idx, song_idx):
+    """
+    Example: /groups/0/songs/0/details
+    """
+    if group_idx >= len(groups) or group_idx < 0:
+        abort(404)
+    group = groups[group_idx]
+    if song_idx >= len(group.songs) or song_idx < 0:
+        abort(404)
+    song = group.songs[song_idx]
+    details = [
+        song.title,
+        song.artist,
+        f"BPM Range: {song.min_bpm} - {song.max_bpm}",
+        f"Duration: {song.duration:.2f} seconds"
+    ]
+    return '\n'.join(details)
+
+
+
 @app.errorhandler(404)
 def not_found(error):
     return make_response("Error: Not Found", 404)
