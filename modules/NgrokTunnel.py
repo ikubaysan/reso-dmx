@@ -11,9 +11,9 @@ class NgrokTunnel:
         print(result.stdout)
         print(result.stderr)
 
-        #command = f"ngrok http {self.port} --log=stdout"
-        command = f"ngrok http {self.port}"
+        command = f"ngrok http {self.port} --log=stdout"
         self.process = subprocess.Popen(command, shell=True)
+        print("Ngrok tunnel started")
 
     def stop_tunnel(self):
         if self.process:
