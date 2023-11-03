@@ -6,6 +6,7 @@ from typing import Tuple, List, Dict, Any
 from mutagen.id3 import ID3
 from mutagen.oggvorbis import OggVorbis
 from modules.Music.Chart import Chart
+from pydub import AudioSegment
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,9 +31,50 @@ class Song:
         self.max_bpm = 0.0
         self.charts: List[Chart] = []
         self.duration: float = 0.0  # Song duration in seconds
+        self.sample_start = 0.0
+        self.sample_length = 0.0
         self.id = id
         self.detect_jacket()
         self.detect_background()
+        return
+
+    def create_sample_ogg(self):
+        # Check if the sample.ogg already exists
+        sample_path = os.path.join(self.directory, 'sample.ogg')
+        if os.path.exists(sample_path):
+            logger.info(f"A sample file already exists for the song {self.name} in {self.directory}")
+            return
+
+        try:
+            # Load the original audio file
+            audio_file_path = os.path.join(self.directory, self.audio_file)
+            if self.audio_file.endswith('.mp3'):
+                original_audio = AudioSegment.from_mp3(audio_file_path)
+            elif self.audio_file.endswith('.ogg'):
+                original_audio = AudioSegment.from_ogg(audio_file_path)
+            elif self.audio_file.endswith('.wav'):
+                original_audio = AudioSegment.from_wav(audio_file_path)
+            else:
+                logger.info(f"Unsupported audio format for the song {self.name}")
+                return
+
+            # Define the start and end time in milliseconds for the sample
+            start_ms = self.sample_start * 1000
+            end_ms = start_ms + (self.sample_length * 1000)
+
+            # Cut the sample from the original audio
+            sample = original_audio[start_ms:end_ms]
+
+            # Apply fade out to the last 10% of the sample_length
+            fade_duration = self.sample_length * 0.1 * 1000  # Last 10% of the sample_length
+            sample_with_fadeout = sample.fade_out(int(fade_duration))
+
+            # Export the sample as an ogg file
+            sample_with_fadeout.export(sample_path, format='ogg')
+            logger.info(f"Created a sample file for the song {self.name} in {self.directory}")
+
+        except Exception as e:
+            logger.error(f"Failed to create sample for {self.name} due to error: {e}")
 
     def detect_jacket(self):
         # Look for a file whose extension is jpg or png, and filename ends with jacket (not case sensitive)
@@ -76,6 +118,8 @@ class Song:
         self.bpms = bpms
         self.charts = charts
         self.duration = self.get_audio_duration(os.path.join(self.directory, self.audio_file))
+        self.create_sample_ogg()
+        return
 
     @staticmethod
     def parse_sm_file(sm_file_path: str) -> Tuple[str, str, float, float, List[Tuple[float, float]], List[Dict[str, Any]]]:
