@@ -13,7 +13,7 @@ class NgrokTunnel:
     def start_tunnel(self):
         # ngrok.set_auth_token("<NGROK_AUTH_TOKEN>")  # Optionally set the auth token
         self.tunnel = ngrok.connect(self.port, "http")
-        print(f"Ngrok tunnel started at {self.tunnel.public_url}")
+        print(f"Ngrok tunnel for local port {self.port} started at {self.tunnel.public_url}")
 
     def stop_tunnel(self):
         if self.tunnel:
