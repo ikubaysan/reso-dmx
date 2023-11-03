@@ -2,6 +2,7 @@ from modules.FlaskAppHandler import FlaskAppHandler
 from modules.HTTPServerHandler import HTTPServerHandler
 
 if __name__ == '__main__':
+    print("Starting the HTTP server and Flask app...")
     flask_app = FlaskAppHandler()
     flask_app.start()
 

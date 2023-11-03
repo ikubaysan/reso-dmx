@@ -24,6 +24,7 @@ class Song:
         self.audio_file = audio_file
         self.sm_file = sm_file
         self.directory = directory
+        self.folder_name = os.path.basename(directory)
         self.title = ""
         self.artist = ""
         self.bpms: List[Tuple[float, float]] = [] # eg [(0.0, 137.7), (4.0, 138.0)]
@@ -40,7 +41,7 @@ class Song:
 
     def create_sample_ogg(self):
         # Check if the sample.ogg already exists
-        sample_path = os.path.join(self.directory, 'sample.ogg')
+        sample_path = os.path.join(self.directory, 'reso-dmx-sample.ogg')
         if os.path.exists(sample_path):
             logger.info(f"A sample file already exists for the song {self.name} in {self.directory}")
             return
@@ -116,7 +117,8 @@ class Song:
         self.min_bpm = min(item[1] for item in bpms)
         self.max_bpm = max(item[1] for item in bpms)
         self.bpms = bpms
-        self.charts = charts
+        # Remove charts that are not mode "dance-single" (eg. "dance-double")
+        self.charts = [chart for chart in charts if chart.mode == "dance-single"]
         self.duration = self.get_audio_duration(os.path.join(self.directory, self.audio_file))
         self.create_sample_ogg()
         return
@@ -149,6 +151,8 @@ class Song:
                 elif line.startswith("#BPMS:"):
                     bpms_data = line.split(":")[1].strip()
                     bpms_data = bpms_data.rstrip(';')
+                    # First value is the beat (integer), second value is the bpm (float, but almost always an integer)
+                    # but I made both values floats here.
                     bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
                 elif line.startswith("#NOTES:"):
                     in_notes_section = True
@@ -163,6 +167,8 @@ class Song:
                 elif in_notes_section:
                     if line.startswith("dance-single:") or line.startswith("dance-double:"):
                         current_mode = line.strip()  # Set the current mode
+                        # Remove the : from the end of the line
+                        current_mode = current_mode.rstrip(':')
                     elif line.endswith(":") and len(line) > 0 and current_difficulty_name == "":
                         current_difficulty_name = line.rstrip(':').strip()
                     elif line[:-1].isdigit() and current_difficulty_level == 0:

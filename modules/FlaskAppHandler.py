@@ -20,6 +20,16 @@ class FlaskAppHandler:
         logging.basicConfig(level=logging.INFO)
         self.logger.info(f"Found {sum(len(group.songs) for group in self.groups)} songs in {len(self.groups)} groups.")
 
+    def validate_indices(self, group_idx, song_idx=None):
+        if group_idx >= len(self.groups) or group_idx < 0:
+            abort(404)
+        group = self.groups[group_idx]
+        if song_idx is not None:
+            if song_idx >= len(group.songs) or song_idx < 0:
+                abort(404)
+            return group, group.songs[song_idx]
+        return group
+
     def setup_routes(self):
         @self.app.route('/groups/count', methods=['GET'])
         def get_group_count():
@@ -27,42 +37,27 @@ class FlaskAppHandler:
 
         @self.app.route('/groups/<int:group_idx>/name', methods=['GET'])
         def get_group_name(group_idx):
-            if group_idx >= len(self.groups) or group_idx < 0:
-                abort(404)
-            return self.groups[group_idx].name
+            group = self.validate_indices(group_idx)
+            return group.name
 
         @self.app.route('/groups/<int:group_idx>/songs/count', methods=['GET'])
         def get_song_count(group_idx):
-            if group_idx >= len(self.groups) or group_idx < 0:
-                abort(404)
-            return str(len(self.groups[group_idx].songs))
+            group = self.validate_indices(group_idx)
+            return str(len(group.songs))
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/title', methods=['GET'])
         def get_song_title(group_idx, song_idx):
-            if group_idx >= len(self.groups) or group_idx < 0:
-                abort(404)
-            group = self.groups[group_idx]
-            if song_idx >= len(group.songs) or song_idx < 0:
-                abort(404)
-            return group.songs[song_idx].title
+            _, song = self.validate_indices(group_idx, song_idx)
+            return song.title
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/artist', methods=['GET'])
         def get_song_artist(group_idx, song_idx):
-            if group_idx >= len(self.groups) or group_idx < 0:
-                abort(404)
-            group = self.groups[group_idx]
-            if song_idx >= len(group.songs) or song_idx < 0:
-                abort(404)
-            return group.songs[song_idx].artist
+            _, song = self.validate_indices(group_idx, song_idx)
+            return song.artist
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/details', methods=['GET'])
         def get_song_details(group_idx, song_idx):
-            if group_idx >= len(self.groups) or group_idx < 0:
-                abort(404)
-            group = self.groups[group_idx]
-            if song_idx >= len(group.songs) or song_idx < 0:
-                abort(404)
-            song = group.songs[song_idx]
+            _, song = self.validate_indices(group_idx, song_idx)
             details = [
                 song.title,
                 song.artist,
@@ -70,6 +65,41 @@ class FlaskAppHandler:
                 f"Duration: {song.duration:.2f} seconds"
             ]
             return '\n'.join(details)
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/jacket', methods=['GET'])
+        def get_song_jacket(group_idx, song_idx):
+            group, song = self.validate_indices(group_idx, song_idx)
+            return "/" + group.name + "/" + song.folder_name + "/" + song.jacket
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/background', methods=['GET'])
+        def get_song_background(group_idx, song_idx):
+            group, song = self.validate_indices(group_idx, song_idx)
+            return "/" + group.name + "/" + song.folder_name + "/" + song.background
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/sample', methods=['GET'])
+        def get_song_sample(group_idx, song_idx):
+            group, song = self.validate_indices(group_idx, song_idx)
+            return "/" + group.name + "/" +  song.folder_name + "/" + "reso-dmx-sample.ogg"
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/audio', methods=['GET'])
+        def get_song_audio(group_idx, song_idx):
+            group, song = self.validate_indices(group_idx, song_idx)
+            return "/" + group.name + "/" + song.folder_name + "/" + song.audio_file
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/count', methods=['GET'])
+        def get_chart_count(group_idx, song_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            return str(len(song.charts))
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/difficulty', methods=['GET'])
+        def get_chart_difficulty(group_idx, song_idx, chart_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            return song.charts[chart_idx].difficulty_name
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/level', methods=['GET'])
+        def get_chart_level(group_idx, song_idx, chart_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            return str(song.charts[chart_idx].difficulty_level)
 
         @self.app.errorhandler(404)
         def not_found(error):
