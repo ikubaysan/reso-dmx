@@ -1,20 +1,31 @@
-import subprocess
+from pyngrok import ngrok
+import logging
+
+# Get the pyngrok logger and set its level to CRITICAL
+logger = logging.getLogger('pyngrok')
+logger.setLevel(logging.CRITICAL)
 
 class NgrokTunnel:
-    def __init__(self, port):
+    def __init__(self, port: int):
         self.port = port
-        self.process = None
+        self.tunnel = None
 
     def start_tunnel(self):
-        # Kill ngrok if it's already running
-        result = subprocess.run("taskkill /f /im ngrok.exe", shell=True, capture_output=True, text=True)
-        print(result.stdout)
-        print(result.stderr)
-
-        command = f"ngrok http {self.port} --log=stdout"
-        self.process = subprocess.Popen(command, shell=True)
-        print("Ngrok tunnel started")
+        # ngrok.set_auth_token("<NGROK_AUTH_TOKEN>")  # Optionally set the auth token
+        self.tunnel = ngrok.connect(self.port, "http")
+        print(f"Ngrok tunnel started at {self.tunnel.public_url}")
 
     def stop_tunnel(self):
-        if self.process:
-            self.process.terminate()
+        if self.tunnel:
+            ngrok.disconnect(self.tunnel.public_url)  # You can disconnect using the public URL
+            self.tunnel = None
+            print("Ngrok tunnel stopped")
+
+
+if __name__ == "__main__":
+    tunnel = NgrokTunnel(8080)
+    tunnel.start_tunnel()
+
+    # Do something with the tunnel
+
+    #tunnel.stop_tunnel()

@@ -2,3 +2,4 @@ flask
 mutagen
 pygame
 pydub
+pyngrok
