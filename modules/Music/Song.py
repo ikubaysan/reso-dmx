@@ -31,8 +31,34 @@ class Song:
         self.charts: List[Chart] = []
         self.duration: float = 0.0  # Song duration in seconds
         self.id = id
-        # self.detect_banner()
-        # self.detect_jacket()
+        self.detect_jacket()
+        self.detect_background()
+
+    def detect_jacket(self):
+        # Look for a file whose extension is jpg or png, and filename ends with jacket (not case sensitive)
+        jacket_files = [f for f in os.listdir(self.directory) if f.lower().endswith(('jacket.jpg', 'jacket.png'))]
+        if jacket_files:
+            self.jacket = jacket_files[0]
+            return
+
+        # Filter out files ending with "bg" or "background" before looking for any jpg or png
+        other_files = [f for f in os.listdir(self.directory)
+                       if (f.lower().endswith(('.jpg', '.png'))
+                           and not any(
+                        f.lower().endswith(bg) for bg in ('bg.jpg',
+                                                          'bg.png',
+                                                          'background.jpg',
+                                                          'background.png')))]
+
+        self.jacket = other_files[0] if other_files else None
+
+    def detect_background(self):
+        # Look for a file whose extension is jpg or png, and filename ends with background (not case sensitive)
+        background_files = [f for f in os.listdir(self.directory) if f.lower().endswith(('bg.jpg',
+                                                                                         'bg.png',
+                                                                                         'background.jpg',
+                                                                                         'background.png'))]
+        self.background = background_files[0] if background_files else None
 
     def load_charts(self):
         """
@@ -40,9 +66,11 @@ class Song:
         :param sm_file_path:
         :return:
         """
-        title, artist, bpms, charts = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
+        title, artist, sample_start, sample_length, bpms, charts = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
         self.title = title
         self.artist = artist
+        self.sample_start = sample_start
+        self.sample_length = sample_length
         self.min_bpm = min(item[1] for item in bpms)
         self.max_bpm = max(item[1] for item in bpms)
         self.bpms = bpms
@@ -50,11 +78,13 @@ class Song:
         self.duration = self.get_audio_duration(os.path.join(self.directory, self.audio_file))
 
     @staticmethod
-    def parse_sm_file(sm_file_path: str) -> Tuple[str, str, List[Tuple[float, float]], List[Dict[str, Any]]]:
+    def parse_sm_file(sm_file_path: str) -> Tuple[str, str, float, float, List[Tuple[float, float]], List[Dict[str, Any]]]:
         title = ""
         artist = ""
         bpms = []
         charts = []
+        sample_start = 0.0
+        sample_length = 0.0
 
         with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
             in_notes_section = False
@@ -78,6 +108,14 @@ class Song:
                     bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
                 elif line.startswith("#NOTES:"):
                     in_notes_section = True
+                elif line.startswith("#SAMPLESTART:"):
+                    # Eg. line = "#SAMPLESTART:61.34;"
+                    # Split by ':', take the second part, split by ';', and cast to float.
+                    sample_start = float(line.split(':')[1].split(';')[0])
+                elif line.startswith("#SAMPLELENGTH:"):
+                    # Eg. line = "#SAMPLELENGTH:10.00;"
+                    # Split by ':', take the second part, split by ';', and cast to float.
+                    sample_length = float(line.split(':')[1].split(';')[0])
                 elif in_notes_section:
                     if line.startswith("dance-single:") or line.startswith("dance-double:"):
                         current_mode = line.strip()  # Set the current mode
@@ -107,7 +145,7 @@ class Song:
                         # Capture the notes data, which looks like 0000
                         notes_data.append(line)
 
-        return title, artist, bpms, charts
+        return title, artist, sample_start, sample_length, bpms, charts
 
     @staticmethod
     def get_audio_duration(audio_file_path: str) -> float:
