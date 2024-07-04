@@ -1,6 +1,7 @@
 import pygame
 import os
 from modules.Music.Song import Song
+from typing import List, Optional
 
 # Constants for the game window
 WINDOW_WIDTH = 800
@@ -13,8 +14,21 @@ ARROW_SPEED = 10
 HORIZONTAL_SPACING = 100  # Horizontal spacing between note lanes
 
 
+class Arrow:
+    def __init__(self, x: int, y: int, spawn_time: float):
+        self.x = x
+        self.y = y
+        self.spawn_time = spawn_time
+
+    def move(self):
+        self.y -= ARROW_SPEED  # Move upwards
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, (255, 0, 0), (self.x, self.y, ARROW_WIDTH, ARROW_HEIGHT))
+
+
 class MeasureLine:
-    def __init__(self, x, speed):
+    def __init__(self, x: int, speed: int):
         self.x = x
         self.y = WINDOW_HEIGHT
         self.speed = speed
@@ -24,6 +38,13 @@ class MeasureLine:
 
     def draw(self, surface):
         pygame.draw.rect(surface, (0, 0, 255), (0, self.y, WINDOW_WIDTH, 2))
+
+
+class BeatInfo:
+    def __init__(self, time: float, normalized_time: float, arrows: Optional[List[Arrow]] = None):
+        self.time = time
+        self.normalized_time = normalized_time
+        self.arrows = arrows if arrows else []
 
 
 class RhythmGame:
@@ -65,7 +86,7 @@ class RhythmGame:
         self.measure_start_time = 0.0  # Time when the current measure started
         self.beat_start_time = 0.0  # Time when the current beat started
 
-    def get_song_time(self):
+    def get_song_time(self) -> float:
         if self.song_start_time is None:
             self.song_start_time = pygame.time.get_ticks()
         return (pygame.time.get_ticks() - self.song_start_time) / 1000.0
@@ -77,6 +98,8 @@ class RhythmGame:
         self.measure_times = []
         self.beat_times = []
 
+        total_song_duration = self.song.duration  # Assuming the song object has a duration attribute in seconds
+
         time = 0.0
         measure_index = 0
         while measure_index < len(self.measures):
@@ -84,9 +107,17 @@ class RhythmGame:
             measure = self.measures[measure_index]
             time_per_beat = (4 * 60 / self.current_bpm) / len(measure)  # 4 beats per measure
             for beat in measure:
-                self.beat_times.append(time)
+                arrows = []
+                for i, note in enumerate(beat):
+                    if note == "1":
+                        x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
+                        arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, time)
+                        arrows.append(arrow)
+                normalized_time = time / total_song_duration
+                self.beat_times.append(BeatInfo(time, normalized_time, arrows))
                 time += time_per_beat
             measure_index += 1
+        return
 
     def update_song_time(self):
         """
@@ -102,17 +133,12 @@ class RhythmGame:
             self.measure_lines.append(measure_line)
             self.current_measure_line_index += 1
 
-        if self.beat_times and self.song_time >= self.beat_times[0]:
-            self.beat_times.pop(0)
-            measure = self.measures[self.current_measure]
-            current_beat = measure[self.current_beat_index]
-            for i, note in enumerate(current_beat):
-                if note == "1":
-                    x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
-                    arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
-                    self.arrows.append(arrow)
+        if self.beat_times and self.song_time >= self.beat_times[0].time:
+            beat_info = self.beat_times.pop(0)
+            self.arrows.extend(beat_info.arrows)
+
             self.current_beat_index += 1
-            if self.current_beat_index >= len(measure):
+            if self.current_beat_index >= len(self.measures[self.current_measure]):
                 self.current_beat_index = 0
                 self.current_measure += 1
 
@@ -173,38 +199,11 @@ class RhythmGame:
         pygame.quit()
 
 
-class Arrow:
-    def __init__(self, x, y, spawn_time):
-        self.x = x
-        self.y = y
-        self.spawn_time = spawn_time
-
-    def move(self):
-        self.y -= ARROW_SPEED  # Move upwards
-
-    def draw(self, surface):
-        pygame.draw.rect(surface, (255, 0, 0), (self.x, self.y, ARROW_WIDTH, ARROW_HEIGHT))
-
-
 if __name__ == "__main__":
-    # Replace with the actual Song object
-    # selected_song = Song(name="bass 2 bass",
-    #                      audio_file="bass 2 bass.ogg",
-    #                      sm_file="bass 2 bass.sm",
-    #                      directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\bass 2 bass",
-    #                      id=0)
-
-
-    # selected_song = Song(name="bass 2 bass",
-    #                      audio_file="Bad Apple!! feat. nomico.ogg",
-    #                      sm_file="Bad Apple!! feat. nomico.sm",
-    #                      directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\Bad Apple!! feat. nomico",
-    #                      id=0)
-
-    selected_song = Song(name="Waiting",
-                         audio_file="Waiting.ogg",
-                         sm_file="Waiting.sm",
-                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A20\Waiting",
+    selected_song = Song(name="bass 2 bass",
+                         audio_file="bass 2 bass.ogg",
+                         sm_file="bass 2 bass.sm",
+                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\bass 2 bass",
                          id=0)
 
     game = RhythmGame(selected_song)
