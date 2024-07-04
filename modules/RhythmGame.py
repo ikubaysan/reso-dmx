@@ -10,7 +10,8 @@ WHITE = (255, 255, 255)
 ARROW_WIDTH = 50
 ARROW_HEIGHT = 1
 ARROW_SPEED = 10
-HORIZONTAL_SPACING = 100 # Horizontal spacing between note lanes
+HORIZONTAL_SPACING = 100  # Horizontal spacing between note lanes
+
 
 class MeasureLine:
     def __init__(self, x, speed):
@@ -23,6 +24,7 @@ class MeasureLine:
 
     def draw(self, surface):
         pygame.draw.rect(surface, (0, 0, 255), (0, self.y, WINDOW_WIDTH, 2))
+
 
 class RhythmGame:
     def __init__(self, song: Song):
@@ -40,9 +42,10 @@ class RhythmGame:
         self.current_measure_line_index = 0
         self.current_beat_index = 0  # Initialize current_beat_index
         self.score = 0
-        self.song_time = 0.0  # Current song time in seconds
+        self.song_start_time = None  # Time when the song started
         self.init_bpm()
         self.init_chart()
+        self.precalculate_times()
 
     def init_bpm(self):
         self.current_bpm = None
@@ -61,45 +64,56 @@ class RhythmGame:
         self.measure_start_time = 0.0  # Time when the current measure started
         self.beat_start_time = 0.0  # Time when the current beat started
 
+    def get_song_time(self):
+        if self.song_start_time is None:
+            self.song_start_time = pygame.time.get_ticks()
+        return (pygame.time.get_ticks() - self.song_start_time) / 1000.0
+
+    def precalculate_times(self):
+        """
+        Pre-calculate the spawn times for measures and beats.
+        """
+        self.measure_times = []
+        self.beat_times = []
+
+        time = 0.0
+        measure_index = 0
+        while measure_index < len(self.measures):
+            self.measure_times.append(time)
+            measure = self.measures[measure_index]
+            time_per_beat = (4 * 60 / self.current_bpm) / len(measure)  # 4 beats per measure
+            for beat in measure:
+                self.beat_times.append(time)
+                time += time_per_beat
+            measure_index += 1
+
     def update_song_time(self):
         """
         Call this once per frame, at the FPS framerate.
         :return:
         """
-        if self.current_bpm:
-            self.song_time += 1 / FPS
+        self.song_time = self.get_song_time()
 
-            if self.next_bpm_change and self.song_time >= self.next_bpm_change:
-                self.current_bpm = self.song.bpms[1][1]
-                if len(self.song.bpms) > 2:
-                    self.next_bpm_change = self.song.bpms[2][0]
-                else:
-                    self.next_bpm_change = None
+        if self.measure_times and self.song_time >= self.measure_times[0]:
+            self.measure_times.pop(0)
+            x = self.current_measure_line_index * HORIZONTAL_SPACING + 100
+            measure_line = MeasureLine(x, ARROW_SPEED)
+            self.measure_lines.append(measure_line)
+            self.current_measure_line_index += 1
 
-            # Check if it's time to move to the next measure
-            if self.song_time >= self.measure_start_time + self.measure_duration:
-                if self.current_measure < len(self.measures):
-                    self.current_measure += 1
-                    self.measure_duration = 4 * (60 / self.current_bpm) # Assume 4 beats per measure
-                    self.measure_start_time = self.song_time
-                    self.current_beat_index = 0  # Reset current_beat_index
-                    x = self.current_measure_line_index * HORIZONTAL_SPACING + 100
-                    measure_line = MeasureLine(x, ARROW_SPEED)
-                    self.measure_lines.append(measure_line)
-                    self.current_measure_line_index += 1
-                    # print(f"Current measure: {self.current_measure}")
-
+        if self.beat_times and self.song_time >= self.beat_times[0]:
+            self.beat_times.pop(0)
             measure = self.measures[self.current_measure]
-            time_per_beat = self.measure_duration / len(measure)
-            if self.song_time >= self.beat_start_time + time_per_beat:
-                current_beat = measure[self.current_beat_index]
-                for i, note in enumerate(current_beat):
-                    if note == "1":
-                        x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
-                        arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
-                        self.arrows.append(arrow)
-                self.current_beat_index += 1
-                self.beat_start_time = self.song_time
+            current_beat = measure[self.current_beat_index]
+            for i, note in enumerate(current_beat):
+                if note == "1":
+                    x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
+                    arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, self.song_time)
+                    self.arrows.append(arrow)
+            self.current_beat_index += 1
+            if self.current_beat_index >= len(measure):
+                self.current_beat_index = 0
+                self.current_measure += 1
 
     def remove_past_arrows(self):
         before_len = len(self.arrows)
@@ -149,6 +163,7 @@ class RhythmGame:
     def start(self):
         self.run()
         pygame.quit()
+
 
 class Arrow:
     def __init__(self, x, y, spawn_time):
