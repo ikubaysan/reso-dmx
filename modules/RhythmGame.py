@@ -43,6 +43,7 @@ class RhythmGame:
         self.current_beat_index = 0  # Initialize current_beat_index
         self.score = 0
         self.song_start_time = None  # Time when the song started
+        self.first_measure_despawned = False
         self.init_bpm()
         self.init_chart()
         self.precalculate_times()
@@ -125,8 +126,15 @@ class RhythmGame:
 
     def remove_past_measure_lines(self):
         self.measure_lines = [line for line in self.measure_lines if line.y > 0]
+        if not self.first_measure_despawned and len(self.measure_lines) == 0:
+            self.first_measure_despawned = True
+            pygame.mixer.music.play()
 
     def run(self):
+        # Load and set up the music
+        pygame.mixer.music.load(os.path.join(self.song.directory, self.song.audio_file))
+        pygame.mixer.music.set_volume(1.0)
+
         running = True
         while running:
             for event in pygame.event.get():
