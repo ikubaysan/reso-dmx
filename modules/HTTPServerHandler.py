@@ -11,7 +11,7 @@ class HTTPServerHandler:
     def start_server(self):
         def run_server():
             os.chdir(self.directory if self.directory else os.getcwd())
-            server_address = ('', self.port)
+            server_address = ('0.0.0.0', self.port)
             handler_class = lambda *args, **kwargs: SimpleHTTPRequestHandler(*args, directory=self.directory, **kwargs)
             self.httpd = HTTPServer(server_address, handler_class)
             print(f"Serving HTTP on 0.0.0.0 port {self.port} (http://0.0.0.0:{self.port}/) ...")

@@ -101,6 +101,14 @@ class FlaskAppHandler:
             _, song = self.validate_indices(group_idx, song_idx)
             return str(song.charts[chart_idx].difficulty_level)
 
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/measures', methods=['GET'])
+        def get_chart_measures(group_idx, song_idx, chart_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            if chart_idx >= len(song.charts) or chart_idx < 0:
+                abort(404)
+            chart = song.charts[chart_idx]
+            return jsonify(chart.measures)
+
         @self.app.errorhandler(404)
         def not_found(error):
             return make_response("Error: Not Found", 404)
@@ -111,3 +119,9 @@ class FlaskAppHandler:
     def start(self):
         # Run the Flask app in a separate thread to avoid blocking
         threading.Thread(target=self.run).start()
+
+
+if __name__ == "__main__":
+    # Change the working directory to the root of the project before running this.
+    app = FlaskAppHandler()
+    app.start()
