@@ -188,10 +188,24 @@ class Arrow:
 
 if __name__ == "__main__":
     # Replace with the actual Song object
-    selected_song = Song(name="bass 2 bass",
-                         audio_file="bass 2 bass.ogg",
-                         sm_file="bass 2 bass.sm",
-                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\bass 2 bass",
+    # selected_song = Song(name="bass 2 bass",
+    #                      audio_file="bass 2 bass.ogg",
+    #                      sm_file="bass 2 bass.sm",
+    #                      directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\bass 2 bass",
+    #                      id=0)
+
+
+    # selected_song = Song(name="bass 2 bass",
+    #                      audio_file="Bad Apple!! feat. nomico.ogg",
+    #                      sm_file="Bad Apple!! feat. nomico.sm",
+    #                      directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\Bad Apple!! feat. nomico",
+    #                      id=0)
+
+    selected_song = Song(name="Waiting",
+                         audio_file="Waiting.ogg",
+                         sm_file="Waiting.sm",
+                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A20\Waiting",
                          id=0)
+
     game = RhythmGame(selected_song)
     game.start()
