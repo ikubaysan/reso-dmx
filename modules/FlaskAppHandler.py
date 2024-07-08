@@ -1,11 +1,10 @@
-from flask import Flask, jsonify, abort, make_response
+from flask import Flask, jsonify, abort, make_response, send_from_directory
 from modules.Music.Group import find_songs
-import threading
 import logging
 import os
 
 class FlaskAppHandler:
-    def __init__(self, host='0.0.0.0', port=5730, root_directory='./songs'):
+    def __init__(self, host='0.0.0.0', port=5731, root_directory='./songs'):
         self.app = Flask(__name__)
         self.host = host
         self.port = port
@@ -69,22 +68,22 @@ class FlaskAppHandler:
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/jacket', methods=['GET'])
         def get_song_jacket(group_idx, song_idx):
             group, song = self.validate_indices(group_idx, song_idx)
-            return "/" + group.name + "/" + song.folder_name + "/" + song.jacket
+            return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/{song.jacket}")
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/background', methods=['GET'])
         def get_song_background(group_idx, song_idx):
             group, song = self.validate_indices(group_idx, song_idx)
-            return "/" + group.name + "/" + song.folder_name + "/" + song.background
+            return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/{song.background}")
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/sample', methods=['GET'])
         def get_song_sample(group_idx, song_idx):
             group, song = self.validate_indices(group_idx, song_idx)
-            return "/" + group.name + "/" +  song.folder_name + "/" + "reso-dmx-sample.ogg"
+            return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/reso-dmx-sample.ogg")
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/audio', methods=['GET'])
         def get_song_audio(group_idx, song_idx):
             group, song = self.validate_indices(group_idx, song_idx)
-            return "/" + group.name + "/" + song.folder_name + "/" + song.audio_file
+            return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/{song.audio_file}")
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/count', methods=['GET'])
         def get_chart_count(group_idx, song_idx):
@@ -116,12 +115,8 @@ class FlaskAppHandler:
     def run(self):
         self.app.run(host=self.host, port=self.port)
 
-    def start(self):
-        # Run the Flask app in a separate thread to avoid blocking
-        threading.Thread(target=self.run).start()
-
 
 if __name__ == "__main__":
     # Change the working directory to the root of the project before running this.
-    app = FlaskAppHandler()
-    app.start()
+    app = FlaskAppHandler(root_directory=os.path.abspath("../songs"))
+    app.run()

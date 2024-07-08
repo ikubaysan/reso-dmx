@@ -203,7 +203,7 @@ if __name__ == "__main__":
     selected_song = Song(name="bass 2 bass",
                          audio_file="bass 2 bass.ogg",
                          sm_file="bass 2 bass.sm",
-                         directory=r"C:\Users\Tay\Desktop\Stuff\Coding\Repos\my_github\reso-dmx\songs\DDR A\bass 2 bass",
+                         directory=os.path.abspath("../songs/DDR A/bass 2 bass"),
                          id=0)
 
     game = RhythmGame(selected_song)
