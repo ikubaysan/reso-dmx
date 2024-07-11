@@ -8,6 +8,7 @@ from mutagen.oggvorbis import OggVorbis
 from modules.Music.Chart import Chart
 from pydub import AudioSegment
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 current_id = 0
@@ -37,6 +38,7 @@ class Song:
         self.id = id
         self.detect_jacket()
         self.detect_background()
+        self.uuid = str(uuid4())
         return
 
     def create_sample_ogg(self):
@@ -142,6 +144,9 @@ class Song:
 
             for line in sm_file:
                 line = line.strip()
+
+                line = line.strip().lstrip('\ufeff')  # Remove BOM if present
+
                 if line.startswith("#TITLE:"):
                     title = line.split(":")[1].strip()
                     title = title.rstrip(';')

@@ -1,16 +1,18 @@
-from flask import Flask, jsonify, abort, make_response, send_from_directory
+from flask import Flask, jsonify, abort, make_response, url_for, send_from_directory
 from modules.Music.Group import find_songs
 from modules.Music.Beat import precalculate_beats, get_beats_as_resonite_string
 import logging
 import os
+import uuid
 
 class FlaskAppHandler:
-    def __init__(self, host='0.0.0.0', port=5731, root_directory='./songs'):
+    def __init__(self, host='127.0.0.1', port=5731, root_directory='./songs'):
         self.app = Flask(__name__)
         self.host = host
         self.port = port
         self.root_directory = root_directory
         self.groups = find_songs(self.root_directory)
+        self.file_guid_map = {}  # Dictionary to store GUID to file path mapping
         self.setup_routes()
         self.setup_logging()
         self.logger.info(f"Flask server started on {self.host}:{self.port} with root directory {os.path.abspath(self.root_directory)}")
@@ -101,27 +103,43 @@ class FlaskAppHandler:
 
             return str(resonite_string)
 
-
     def setup_file_routes(self):
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/jacket', methods=['GET'])
         def get_song_jacket(group_idx, song_idx):
-            group, song = self.validate_indices(group_idx, song_idx)
-            return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/{song.jacket}")
+            return self.generate_file_url(group_idx, song_idx, "jacket")
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/background', methods=['GET'])
         def get_song_background(group_idx, song_idx):
-            group, song = self.validate_indices(group_idx, song_idx)
-            return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/{song.background}")
+            return self.generate_file_url(group_idx, song_idx, "background")
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/sample', methods=['GET'])
         def get_song_sample(group_idx, song_idx):
-            group, song = self.validate_indices(group_idx, song_idx)
-            return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/reso-dmx-sample.ogg")
+            return self.generate_file_url(group_idx, song_idx, "sample")
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/audio', methods=['GET'])
         def get_song_audio(group_idx, song_idx):
-            group, song = self.validate_indices(group_idx, song_idx)
-            return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/{song.audio_file}")
+            return self.generate_file_url(group_idx, song_idx, "audio")
+
+        @self.app.route('/assets/<guid>', methods=['GET'])
+        def serve_file(guid):
+            if guid not in self.file_guid_map:
+                abort(404)
+            file_path = self.file_guid_map[guid]
+            return send_from_directory(directory=self.root_directory, path=file_path)
+
+    def generate_file_url(self, group_idx, song_idx, file_type):
+        group, song = self.validate_indices(group_idx, song_idx)
+        file_map = {
+            "jacket": song.jacket,
+            "background": song.background,
+            "sample": "reso-dmx-sample.ogg",
+            "audio": song.audio_file
+        }
+        file_name = file_map[file_type]
+        file_path = f"{group.name}/{song.folder_name}/{file_name}"
+        file_guid = str(uuid.uuid4())
+        self.file_guid_map[file_guid] = file_path
+        return f"http://{self.host}:{self.port}/assets/{file_guid}"
 
     def run(self):
         self.app.run(host=self.host, port=self.port)
