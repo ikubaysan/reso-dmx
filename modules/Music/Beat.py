@@ -5,7 +5,7 @@ import os
 
 
 class Beat:
-    def __init__(self, time: float, normalized_time: float, arrows_binary_string: str, arrows: List[int] = None):
+    def __init__(self, time: float, normalized_time: float, n_beats_in_measure: int, arrows_binary_string: str, arrows: List[int] = None):
         self.time = time
         self.normalized_time = normalized_time
         # 7 decimal places with padding if necessary
@@ -17,6 +17,7 @@ class Beat:
 
         self.arrows = arrows if arrows else []
         self.arrows_binary_string = arrows_binary_string
+        self.n_beats_in_measure = n_beats_in_measure
 
 
 def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -> List[Beat]:
@@ -36,7 +37,8 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
     measure_index = 0
     while measure_index < len(chart.measures):
         measure = chart.measures[measure_index]
-        time_per_beat = (4 * 60 / current_bpm) / len(measure)  # 4 beats per measure
+        n_beats_in_measure = len(measure)
+        time_per_beat = (4 * 60 / current_bpm) / n_beats_in_measure  # eg 4 beats per measure
         for beat in measure:
             arrows = []
             for i, note in enumerate(beat):
@@ -48,7 +50,7 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
                 time += time_per_beat
                 continue
             else:
-                beats.append(Beat(time, normalized_time, arrows_binary_string=beat, arrows=arrows))
+                beats.append(Beat(time, normalized_time, n_beats_in_measure=n_beats_in_measure, arrows_binary_string=beat, arrows=arrows))
                 time += time_per_beat
         measure_index += 1
     return beats

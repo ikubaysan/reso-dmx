@@ -32,7 +32,7 @@ def find_songs(root_directory: str) -> List[Group]:
 
                 if os.path.isdir(song_path):
                     song_files = os.listdir(song_path)
-                    audio_file = next((f for f in song_files if f.endswith(('.ogg', '.mp3'))), None)
+                    audio_file = next((f for f in song_files if f.endswith(('.ogg', '.mp3')) and "reso-dmx-sample" not in f), None)
                     sm_file = next((f for f in song_files if f.endswith('.sm')), None)
 
                     if audio_file and sm_file:

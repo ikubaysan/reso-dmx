@@ -91,6 +91,14 @@ class FlaskAppHandler:
             _, song = self.validate_indices(group_idx, song_idx)
             return str(song.charts[chart_idx].difficulty_level)
 
+
+        # route to get a list of difficulty levels for a song
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/chart_levels', methods=['GET'])
+        def get_chart_levels(group_idx, song_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            # A single string where each difficulty is padded with 0 to be 2 digits and separated by "|"
+            return "".join([str(chart.difficulty_level).zfill(2) for chart in song.charts])
+
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/notes', methods=['GET'])
         def get_chart_measures(group_idx, song_idx, chart_idx):
             _, song = self.validate_indices(group_idx, song_idx)
