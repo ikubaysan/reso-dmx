@@ -12,8 +12,8 @@ class Beat:
         self.normalized_time_string_formatted = f"{normalized_time:.7f}"
 
         # # pad 4 digits for the whole number part, 7 digits for the decimal part
-        # whole_part, decimal_part = f"{time:.7f}".split('.')
-        # self.time_string_formatted = f"{int(whole_part):04d}.{decimal_part:0<7}"
+        whole_part, decimal_part = f"{time:.7f}".split('.')
+        self.time_string_formatted = f"{int(whole_part):04d}.{decimal_part:0<7}"
 
         self.arrows = arrows if arrows else []
         self.arrows_binary_string = arrows_binary_string
@@ -60,8 +60,9 @@ def get_beats_as_resonite_string(beats: List[Beat]) -> str:
     """
     resonite_string = ""
     for beat in beats:
-        #resonite_string += f"{beat.normalized_time_string_formatted}{beat.time_string_formatted}{beat.arrows_binary_string}"
-        resonite_string += f"{beat.normalized_time_string_formatted}{beat.arrows_binary_string}"
+        resonite_string += f"{beat.time_string_formatted}{beat.arrows_binary_string}"
+        # resonite_string += f"{beat.normalized_time_string_formatted}{beat.time_string_formatted}{beat.arrows_binary_string}"
+        # resonite_string += f"{beat.normalized_time_string_formatted}{beat.arrows_binary_string}"
     return resonite_string
 
 

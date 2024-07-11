@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, abort, make_response, send_from_directory
 from modules.Music.Group import find_songs
+from modules.Music.Beat import precalculate_beats, get_beats_as_resonite_string
 import logging
 import os
 
@@ -30,6 +31,14 @@ class FlaskAppHandler:
         return group
 
     def setup_routes(self):
+        self.setup_api_routes()
+        self.setup_file_routes()
+
+        @self.app.errorhandler(404)
+        def not_found(error):
+            return make_response("Error: Not Found", 404)
+
+    def setup_api_routes(self):
         @self.app.route('/groups/count', methods=['GET'])
         def get_group_count():
             return str(len(self.groups))
@@ -65,6 +74,35 @@ class FlaskAppHandler:
             ]
             return '\n'.join(details)
 
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/count', methods=['GET'])
+        def get_chart_count(group_idx, song_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            return str(len(song.charts))
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/difficulty', methods=['GET'])
+        def get_chart_difficulty(group_idx, song_idx, chart_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            return song.charts[chart_idx].difficulty_name
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/level', methods=['GET'])
+        def get_chart_level(group_idx, song_idx, chart_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            return str(song.charts[chart_idx].difficulty_level)
+
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/notes', methods=['GET'])
+        def get_chart_measures(group_idx, song_idx, chart_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            if chart_idx >= len(song.charts) or chart_idx < 0:
+                abort(404)
+            chart = song.charts[chart_idx]
+
+            beats = precalculate_beats(song=song, chart=chart, exclude_inactive_beats=True)
+            resonite_string = get_beats_as_resonite_string(beats)
+
+            return str(resonite_string)
+
+
+    def setup_file_routes(self):
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/jacket', methods=['GET'])
         def get_song_jacket(group_idx, song_idx):
             group, song = self.validate_indices(group_idx, song_idx)
@@ -84,33 +122,6 @@ class FlaskAppHandler:
         def get_song_audio(group_idx, song_idx):
             group, song = self.validate_indices(group_idx, song_idx)
             return send_from_directory(directory=self.root_directory, path=f"{group.name}/{song.folder_name}/{song.audio_file}")
-
-        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/count', methods=['GET'])
-        def get_chart_count(group_idx, song_idx):
-            _, song = self.validate_indices(group_idx, song_idx)
-            return str(len(song.charts))
-
-        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/difficulty', methods=['GET'])
-        def get_chart_difficulty(group_idx, song_idx, chart_idx):
-            _, song = self.validate_indices(group_idx, song_idx)
-            return song.charts[chart_idx].difficulty_name
-
-        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/level', methods=['GET'])
-        def get_chart_level(group_idx, song_idx, chart_idx):
-            _, song = self.validate_indices(group_idx, song_idx)
-            return str(song.charts[chart_idx].difficulty_level)
-
-        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/measures', methods=['GET'])
-        def get_chart_measures(group_idx, song_idx, chart_idx):
-            _, song = self.validate_indices(group_idx, song_idx)
-            if chart_idx >= len(song.charts) or chart_idx < 0:
-                abort(404)
-            chart = song.charts[chart_idx]
-            return jsonify(chart.measures)
-
-        @self.app.errorhandler(404)
-        def not_found(error):
-            return make_response("Error: Not Found", 404)
 
     def run(self):
         self.app.run(host=self.host, port=self.port)
