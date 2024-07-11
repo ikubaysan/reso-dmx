@@ -120,11 +120,11 @@ class FlaskAppHandler:
         def get_song_audio(group_idx, song_idx):
             return self.generate_file_url(group_idx, song_idx, "audio")
 
-        @self.app.route('/assets/<guid>', methods=['GET'])
-        def serve_file(guid):
+        @self.app.route('/assets/<guid>/<file_type>', methods=['GET'])
+        def serve_file(guid, file_type):
             if guid not in self.file_guid_map:
                 abort(404)
-            file_path = self.file_guid_map[guid]
+            file_path = self.file_guid_map[guid][file_type]
             return send_from_directory(directory=self.root_directory, path=file_path)
 
     def generate_file_url(self, group_idx, song_idx, file_type):
@@ -137,9 +137,11 @@ class FlaskAppHandler:
         }
         file_name = file_map[file_type]
         file_path = f"{group.name}/{song.folder_name}/{file_name}"
-        file_guid = str(uuid.uuid4())
-        self.file_guid_map[file_guid] = file_path
-        return f"http://{self.host}:{self.port}/assets/{file_guid}"
+        file_guid = song.uuid
+        if file_guid not in self.file_guid_map:
+            self.file_guid_map[file_guid] = {}
+        self.file_guid_map[file_guid][file_type] = file_path
+        return f"http://{self.host}:{self.port}/assets/{file_guid}/{file_type}"
 
     def run(self):
         self.app.run(host=self.host, port=self.port)
