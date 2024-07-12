@@ -29,6 +29,7 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
     total_song_duration = song.duration  # Assuming the song object has a duration attribute in seconds
 
     if len(song.bpms) > 1:
+        # TODO: support BPM changes
         raise NotImplementedError("BPM changes are not supported yet.")
 
     current_bpm = song.bpms[0][1]

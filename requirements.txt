@@ -3,3 +3,4 @@ mutagen
 pygame
 pydub
 pyngrok
+pymongo[srv]

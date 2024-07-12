@@ -121,6 +121,9 @@ class Song:
         self.bpms = bpms
         # Remove charts that are not mode "dance-single" (eg. "dance-double")
         self.charts = [chart for chart in charts if chart.mode == "dance-single"]
+        # Sort the charts by difficulty level ascending
+        self.charts.sort(key=lambda x: x.difficulty_level)
+
         self.duration = self.get_audio_duration(os.path.join(self.directory, self.audio_file))
         self.create_sample_ogg()
         return
