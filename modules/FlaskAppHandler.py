@@ -6,9 +6,10 @@ import os
 import uuid
 
 class FlaskAppHandler:
-    def __init__(self, host='127.0.0.1', port=5731, root_directory='./songs'):
+    def __init__(self, host='0.0.0.0', base_url="http://servers.ikubaysan.com", port=5731, root_directory='./songs'):
         self.app = Flask(__name__)
         self.host = host
+        self.base_url = base_url
         self.port = port
         self.root_directory = root_directory
         self.groups = find_songs(self.root_directory)
@@ -16,6 +17,10 @@ class FlaskAppHandler:
         self.setup_routes()
         self.setup_logging()
         self.logger.info(f"Flask server started on {self.host}:{self.port} with root directory {os.path.abspath(self.root_directory)}")
+        if base_url:
+            self.logger.info(f"Base URL: {self.base_url}")
+        else:
+            self.logger.info(f"No base URL provided. Using IP address and port.")
 
     def setup_logging(self):
         self.logger = logging.getLogger(__name__)
@@ -149,7 +154,12 @@ class FlaskAppHandler:
         if file_guid not in self.file_guid_map:
             self.file_guid_map[file_guid] = {}
         self.file_guid_map[file_guid][file_type] = file_path
-        return f"http://{self.host}:{self.port}/assets/{file_guid}/{file_type}"
+
+
+        if self.base_url:
+            return f"{self.base_url}:{self.port}/assets/{file_guid}/{file_type}"
+        else:
+            return f"http://{self.host}:{self.port}/assets/{file_guid}/{file_type}"
 
     def run(self):
         self.app.run(host=self.host, port=self.port)
