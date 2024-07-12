@@ -14,11 +14,12 @@ class Group:
     def add_song(self, song_dir: str, audio_file: str, sm_file: str, song_path: str):
         song = Song(song_dir, audio_file, sm_file, song_path, self.song_count)
 
+        song.load_charts()
+
         if len(song.bpms) > 1:
             # raise NotImplementedError("BPM changes are not supported yet.")
             return
 
-        song.load_charts()
         self.songs.append(song)
         self.song_count += 1
 
