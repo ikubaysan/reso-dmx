@@ -1,6 +1,8 @@
 from typing import List
+import logging
 from modules.Music.Song import Song
 import os
+logger = logging.getLogger(__name__)
 
 class Group:
     def __init__(self, name: str):
@@ -18,6 +20,10 @@ class Group:
 
         if len(song.bpms) > 1:
             # raise NotImplementedError("BPM changes are not supported yet.")
+            return
+
+        if song.duration == 0:
+            logger.warning(f"Song {song.name} has a duration of 0 seconds - skipping.")
             return
 
         self.songs.append(song)

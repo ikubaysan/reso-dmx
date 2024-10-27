@@ -5,6 +5,7 @@ import os
 from typing import Tuple, List, Dict, Any
 from mutagen.id3 import ID3
 from mutagen.oggvorbis import OggVorbis
+from mutagen.mp3 import MP3
 from modules.Music.Chart import Chart
 from pydub import AudioSegment
 import logging
@@ -116,6 +117,13 @@ class Song:
         self.artist = artist
         self.sample_start = sample_start
         self.sample_length = sample_length
+
+        # For some reason, I noticed that in old mixes like DDR 1-8th mix,
+        # some charts have 2 bpms and they're less than 1 bpm apart.
+        # In this case, we'll just use the 2nd bpm, but set its start time to 0.
+        if len(bpms) == 2 and bpms[-1][1] - bpms[0][1] < 1:
+            bpms = [(0.0, bpms[-1][1])]
+
         self.min_bpm = min(item[1] for item in bpms)
         self.max_bpm = max(item[1] for item in bpms)
         self.bpms = bpms
@@ -209,7 +217,7 @@ class Song:
     def get_audio_duration(audio_file_path: str) -> float:
         try:
             if audio_file_path.endswith('.mp3'):
-                audio = ID3(audio_file_path)
+                audio = MP3(audio_file_path)
                 return float(audio.info.length)
             elif audio_file_path.endswith('.ogg'):
                 audio = OggVorbis(audio_file_path)
