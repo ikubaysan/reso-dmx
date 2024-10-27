@@ -24,7 +24,7 @@ class FlaskAppHandler:
 
     def setup_logging(self):
         self.logger = logging.getLogger(__name__)
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         self.logger.info(f"Found {sum(len(group.songs) for group in self.groups)} songs in {len(self.groups)} groups.")
 
     def validate_indices(self, group_idx, song_idx=None):
