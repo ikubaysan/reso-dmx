@@ -22,11 +22,15 @@ class Song:
         :param sm_file: The sm file filename
         :param directory: The directory of the song, containing the audio and sm files
         """
-        self.name = name
-        self.audio_file = audio_file
-        self.sm_file = sm_file
         self.directory = directory
         self.folder_name = os.path.basename(directory)
+        self.name = name
+
+        # Creating and using an ogg file for the audio for now because that's what Resonite supports.
+        self.audio_file_path = self.get_ogg_audio_file_path(original_audio_file_path=os.path.join(self.directory, audio_file))
+        self.audio_file_name = os.path.basename(self.audio_file_path)
+
+        self.sm_file = sm_file
         self.title = ""
         self.artist = ""
         self.bpms: List[Tuple[float, float]] = [] # eg [(0.0, 137.7), (4.0, 138.0)]
@@ -42,6 +46,37 @@ class Song:
         self.uuid = str(uuid4())
         return
 
+    def get_ogg_audio_file_path(self, original_audio_file_path: str) -> str:
+        # If it's already an ogg file, return its path
+        if original_audio_file_path.endswith('.ogg'):
+            return original_audio_file_path
+
+        # Check if an ogg file with the same base name already exists in the directory
+        base_name = os.path.splitext(os.path.basename(original_audio_file_path))[0]
+        ogg_file_path = os.path.join(self.directory, f"{base_name}.ogg")
+        if os.path.exists(ogg_file_path):
+            return ogg_file_path
+
+        # Convert the audio to ogg format and save it in the directory with the same base name
+        try:
+            if original_audio_file_path.endswith('.mp3'):
+                audio = AudioSegment.from_mp3(original_audio_file_path)
+            elif original_audio_file_path.endswith('.wav'):
+                audio = AudioSegment.from_wav(original_audio_file_path)
+            else:
+                logger.info(f"Unsupported audio format for conversion in {self.directory}")
+                return original_audio_file_path  # Return original if format is unsupported
+
+            # Export the audio as an ogg file
+            audio.export(ogg_file_path, format='ogg')
+            logger.info(f"Converted {original_audio_file_path} to {ogg_file_path}")
+
+        except Exception as e:
+            logger.error(f"Failed to convert {original_audio_file_path} to ogg: {e}")
+            return original_audio_file_path  # Return original path if conversion fails
+
+        return ogg_file_path
+
     def create_sample_ogg(self):
         # Check if the sample.ogg already exists
         sample_path = os.path.join(self.directory, 'reso-dmx-sample.ogg')
@@ -51,13 +86,12 @@ class Song:
 
         try:
             # Load the original audio file
-            audio_file_path = os.path.join(self.directory, self.audio_file)
-            if self.audio_file.endswith('.mp3'):
-                original_audio = AudioSegment.from_mp3(audio_file_path)
-            elif self.audio_file.endswith('.ogg'):
-                original_audio = AudioSegment.from_ogg(audio_file_path)
-            elif self.audio_file.endswith('.wav'):
-                original_audio = AudioSegment.from_wav(audio_file_path)
+            if self.audio_file_path.endswith('.mp3'):
+                original_audio = AudioSegment.from_mp3(self.audio_file_path)
+            elif self.audio_file_path.endswith('.ogg'):
+                original_audio = AudioSegment.from_ogg(self.audio_file_path)
+            elif self.audio_file_path.endswith('.wav'):
+                original_audio = AudioSegment.from_wav(self.audio_file_path)
             else:
                 logger.info(f"Unsupported audio format for the song {self.name}")
                 return
@@ -132,7 +166,7 @@ class Song:
         # Sort the charts by difficulty level ascending
         self.charts.sort(key=lambda x: x.difficulty_level)
 
-        self.duration = self.get_audio_duration(os.path.join(self.directory, self.audio_file))
+        self.duration = self.get_audio_duration(audio_file_path=self.audio_file_path)
         self.create_sample_ogg()
         return
 

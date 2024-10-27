@@ -1,6 +1,9 @@
 from flask import Flask, jsonify, abort, make_response, url_for, send_from_directory
+from modules.Music.Group import Group
+from modules.Music.Song import Song
 from modules.Music.Group import find_songs
 from modules.Music.Beat import precalculate_beats, get_beats_as_resonite_string
+from typing import List, Tuple, Optional
 import logging
 import os
 import uuid
@@ -27,7 +30,7 @@ class FlaskAppHandler:
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         self.logger.info(f"Found {sum(len(group.songs) for group in self.groups)} songs in {len(self.groups)} groups.")
 
-    def validate_indices(self, group_idx, song_idx=None):
+    def validate_indices(self, group_idx, song_idx=None) -> Tuple[Group, Optional[Song]]:
         if group_idx >= len(self.groups) or group_idx < 0:
             abort(404)
         group = self.groups[group_idx]
@@ -35,7 +38,7 @@ class FlaskAppHandler:
             if song_idx >= len(group.songs) or song_idx < 0:
                 abort(404)
             return group, group.songs[song_idx]
-        return group
+        return group, None
 
     def setup_routes(self):
         self.setup_api_routes()
@@ -52,12 +55,12 @@ class FlaskAppHandler:
 
         @self.app.route('/groups/<int:group_idx>/name', methods=['GET'])
         def get_group_name(group_idx):
-            group = self.validate_indices(group_idx)
+            group, _ = self.validate_indices(group_idx)
             return group.name
 
         @self.app.route('/groups/<int:group_idx>/songs/count', methods=['GET'])
         def get_song_count(group_idx):
-            group = self.validate_indices(group_idx)
+            group, _ = self.validate_indices(group_idx)
             return str(len(group.songs))
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/title', methods=['GET'])
@@ -146,7 +149,7 @@ class FlaskAppHandler:
             "jacket": song.jacket,
             "background": song.background,
             "sample": "reso-dmx-sample.ogg",
-            "audio": song.audio_file
+            "audio": song.audio_file_name
         }
         file_name = file_map[file_type]
         file_path = f"{group.name}/{song.folder_name}/{file_name}"
