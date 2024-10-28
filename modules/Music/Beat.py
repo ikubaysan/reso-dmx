@@ -42,9 +42,14 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
         time_per_beat = (4 * 60 / current_bpm) / n_beats_in_measure  # eg 4 beats per measure
         for beat in measure:
             arrows = []
+
+            # For now, convert all hold notes to regular notes
+            beat = beat.replace("2", "1")
+
             for i, note in enumerate(beat):
                 if note == "1":
                     arrows.append(i)
+
             normalized_time = time / total_song_duration
 
             if exclude_inactive_beats and not arrows:
