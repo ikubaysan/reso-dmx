@@ -8,6 +8,7 @@ from mutagen.oggvorbis import OggVorbis
 from mutagen.mp3 import MP3
 from modules.Music.Chart import Chart
 from pydub import AudioSegment
+from modules.utils.StringUtils import format_seconds
 import logging
 import uuid
 
@@ -38,6 +39,7 @@ class Song:
         self.max_bpm = 0.0
         self.charts: List[Chart] = []
         self.duration: float = 0.0  # Song duration in seconds
+        self.duration_str: str = ""
         self.sample_start = 0.0
         self.sample_length = 0.0
         self.id = id
@@ -146,7 +148,13 @@ class Song:
         :param sm_file_path:
         :return:
         """
-        title, artist, sample_start, sample_length, bpms, charts = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
+
+        try:
+            title, artist, sample_start, sample_length, bpms, charts = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
+        except Exception as e:
+            logger.error(f"Error parsing sm file for {self.name}: {str(e)}")
+            return
+
         self.title = title
         self.artist = artist
         self.sample_start = sample_start
@@ -157,16 +165,20 @@ class Song:
         # In this case, we'll just use the 2nd bpm, but set its start time to 0.
         if len(bpms) == 2 and bpms[-1][1] - bpms[0][1] < 1:
             bpms = [(0.0, bpms[-1][1])]
+        self.bpms = bpms
+
+        if len(self.bpms) == 0:
+            return
 
         self.min_bpm = min(item[1] for item in bpms)
         self.max_bpm = max(item[1] for item in bpms)
-        self.bpms = bpms
         # Remove charts that are not mode "dance-single" (eg. "dance-double")
         self.charts = [chart for chart in charts if chart.mode == "dance-single"]
         # Sort the charts by difficulty level ascending
         self.charts.sort(key=lambda x: x.difficulty_level)
 
         self.duration = self.get_audio_duration(audio_file_path=self.audio_file_path)
+        self.duration_str = format_seconds(self.duration)
         self.create_sample_ogg()
         return
 
@@ -191,26 +203,27 @@ class Song:
                 line = line.strip()
 
                 line = line.strip().lstrip('\ufeff')  # Remove BOM if present
+                line_lower = line.lower()
 
-                if line.startswith("#TITLE:"):
+                if line_lower.startswith("#title:"):
                     title = line.split(":")[1].strip()
                     title = title.rstrip(';')
-                elif line.startswith("#ARTIST:"):
+                elif line_lower.startswith("#artist:"):
                     artist = line.split(":")[1].strip()
                     artist = artist.rstrip(';')
-                elif line.startswith("#BPMS:"):
+                elif line_lower.startswith("#bpms:"):
                     bpms_data = line.split(":")[1].strip()
                     bpms_data = bpms_data.rstrip(';')
                     # First value is the beat (integer), second value is the bpm (float, but almost always an integer)
                     # but I made both values floats here.
                     bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
-                elif line.startswith("#NOTES:"):
+                elif line_lower.startswith("#notes:"):
                     in_notes_section = True
-                elif line.startswith("#SAMPLESTART:"):
+                elif line_lower.startswith("#samplestart:"):
                     # Eg. line = "#SAMPLESTART:61.34;"
                     # Split by ':', take the second part, split by ';', and cast to float.
                     sample_start = float(line.split(':')[1].split(';')[0])
-                elif line.startswith("#SAMPLELENGTH:"):
+                elif line_lower.startswith("#samplelength:"):
                     # Eg. line = "#SAMPLELENGTH:10.00;"
                     # Split by ':', take the second part, split by ';', and cast to float.
                     sample_length = float(line.split(':')[1].split(';')[0])

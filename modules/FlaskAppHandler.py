@@ -80,7 +80,7 @@ class FlaskAppHandler:
                 song.title,
                 song.artist,
                 f"BPM Range: {int(song.min_bpm)} - {int(song.max_bpm)}" if song.min_bpm != song.max_bpm else f"BPM: {int(song.min_bpm)}",
-                f"Duration: {song.duration:.2f} seconds"
+                f"Duration: {song.duration_str}"
             ]
             return '\n'.join(details)
 

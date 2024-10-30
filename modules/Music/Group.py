@@ -18,6 +18,10 @@ class Group:
 
         song.load_charts()
 
+        if len(song.bpms) == 0:
+            logger.warning(f"Song {song.name} at {song.directory} has no BPMs - skipping.")
+            return
+
         if len(song.bpms) > 1:
             # raise NotImplementedError("BPM changes are not supported yet.")
             return
