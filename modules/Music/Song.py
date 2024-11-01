@@ -237,10 +237,10 @@ class Song:
                     elif line[:-1].isdigit() and current_difficulty_level == 0:
                         # Check if the line (excluding the last character) is a digit. Only set if it has not been set yet.
                         current_difficulty_level = int(line[:-1])
-                    elif line == ",":  # End of measure
+                    elif line.startswith(","):  # End of measure. Using startswith instead of equals because there could be comments
                         measures.append(notes_data)  # Add notes data for the current measure
                         notes_data = []  # Reset notes data for the next measure
-                    elif line == ";":
+                    elif line.startswith(";"):
                         in_notes_section = False
                         if current_mode and current_difficulty_name and current_difficulty_level:
                             chart = Chart(

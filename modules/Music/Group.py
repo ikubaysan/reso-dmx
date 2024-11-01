@@ -39,6 +39,10 @@ def find_songs(root_directory: str) -> List[Group]:
     groups = []
 
     for group_dir in os.listdir(root_directory):
+        # If the folder name is "ignore", skip it
+        if group_dir == "ignore":
+            continue
+
         group_path = os.path.join(root_directory, group_dir)
 
         if os.path.isdir(group_path):

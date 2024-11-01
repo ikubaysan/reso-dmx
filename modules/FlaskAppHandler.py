@@ -56,7 +56,7 @@ class FlaskAppHandler:
         @self.app.route('/groups/<int:group_idx>/name', methods=['GET'])
         def get_group_name(group_idx):
             group, _ = self.validate_indices(group_idx)
-            return group.name
+            return f"{group.name} ({len(group.songs)} ♫)"
 
         @self.app.route('/groups/<int:group_idx>/songs/count', methods=['GET'])
         def get_song_count(group_idx):
