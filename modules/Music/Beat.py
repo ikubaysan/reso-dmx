@@ -22,30 +22,38 @@ class Beat:
 
 def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -> List[Beat]:
     """
-    Pre-calculate the spawn times for measures and beats.
+    Pre-calculate the spawn times for measures and beats, handling BPM changes.
     """
     beats = []
 
     total_song_duration = song.duration  # Assuming the song object has a duration attribute in seconds
 
-    if len(song.bpms) > 1:
-        # TODO: support BPM changes
-        raise NotImplementedError("BPM changes are not supported yet.")
+    bpm_list = song.bpms  # List of (beat, bpm) tuples
 
-    current_bpm = song.bpms[0][1]
+    current_bpm_index = 0
+    current_bpm = bpm_list[current_bpm_index][1]
+    next_bpm_change_beat = bpm_list[current_bpm_index + 1][0] if current_bpm_index + 1 < len(bpm_list) else None
 
     time = 0.0
-    measure_index = 0
-    while measure_index < len(chart.measures):
-        measure = chart.measures[measure_index]
-        n_beats_in_measure = len(measure)
-        time_per_beat = (4 * 60 / current_bpm) / n_beats_in_measure  # eg 4 beats per measure
-        for beat in measure:
-            arrows = []
+    for measure_index, measure in enumerate(chart.measures):
+        n_note_rows_in_measure = len(measure)
+        for note_row_index, beat in enumerate(measure):
+            # Compute the current beat number
+            beat_number = measure_index * 4 + (note_row_index / n_note_rows_in_measure) * 4
 
-            # For now, convert all hold notes to regular notes
+            # Check for BPM change
+            while next_bpm_change_beat is not None and beat_number >= next_bpm_change_beat:
+                current_bpm_index += 1
+                current_bpm = bpm_list[current_bpm_index][1]
+                next_bpm_change_beat = bpm_list[current_bpm_index + 1][0] if current_bpm_index + 1 < len(bpm_list) else None
+
+            # Calculate time per note row
+            time_per_note_row = (4 * 60 / current_bpm) / n_note_rows_in_measure
+
+            # Convert hold notes to regular notes
             beat = beat.replace("2", "1")
 
+            arrows = []
             for i, note in enumerate(beat):
                 if note == "1":
                     arrows.append(i)
@@ -53,13 +61,20 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
             normalized_time = time / total_song_duration
 
             if exclude_inactive_beats and not arrows:
-                time += time_per_beat
+                time += time_per_note_row
                 continue
             else:
-                beats.append(Beat(time, normalized_time, n_beats_in_measure=n_beats_in_measure, arrows_binary_string=beat, arrows=arrows))
-                time += time_per_beat
-        measure_index += 1
+                beats.append(Beat(
+                    time,
+                    normalized_time,
+                    n_beats_in_measure=n_note_rows_in_measure,
+                    arrows_binary_string=beat,
+                    arrows=arrows
+                ))
+                time += time_per_note_row
+
     return beats
+
 
 
 def get_beats_as_resonite_string(beats: List[Beat]) -> str:
