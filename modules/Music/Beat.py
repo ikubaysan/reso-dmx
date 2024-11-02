@@ -58,15 +58,16 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
                 if note == "1":
                     arrows.append(i)
 
-            normalized_time = time / total_song_duration
+            beat_time = time - song.offset
+            beat_normalized_time = (beat_time - song.offset) / total_song_duration
 
             if exclude_inactive_beats and not arrows:
                 time += time_per_note_row
                 continue
             else:
                 beats.append(Beat(
-                    time,
-                    normalized_time,
+                    time=beat_time,
+                    normalized_time=beat_normalized_time,
                     n_beats_in_measure=n_note_rows_in_measure,
                     arrows_binary_string=beat,
                     arrows=arrows
