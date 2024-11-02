@@ -42,6 +42,7 @@ class Song:
         self.duration_str: str = ""
         self.sample_start = 0.0
         self.sample_length = 0.0
+        self.offset = 0.0
         self.id = id
         self.detect_jacket()
         self.detect_background()
@@ -150,7 +151,7 @@ class Song:
         """
 
         try:
-            title, artist, sample_start, sample_length, bpms, charts = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
+            title, artist, sample_start, sample_length, bpms, charts, offset = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
         except Exception as e:
             logger.error(f"Error parsing sm file for {self.name}: {str(e)}")
             return
@@ -159,6 +160,7 @@ class Song:
         self.artist = artist
         self.sample_start = sample_start
         self.sample_length = sample_length
+        self.offset = offset  # Store the parsed offset
 
         # Check if there’s more than 1 BPM and if all BPMs are within 1 BPM of each other
         # If so, keep only the last BPM
@@ -183,14 +185,16 @@ class Song:
         return
 
     @staticmethod
+    @staticmethod
     def parse_sm_file(sm_file_path: str) -> Tuple[
-        str, str, float, float, List[Tuple[float, float]], List[Dict[str, Any]]]:
+        str, str, float, float, List[Tuple[float, float]], List[Dict[str, Any]], float]:
         title = ""
         artist = ""
         bpms = []
         charts = []
         sample_start = 0.0
         sample_length = 0.0
+        offset = 0.0  # Initialize offset
 
         with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
             in_notes_section = False
@@ -208,10 +212,17 @@ class Song:
                     title = line.split(":")[1].strip().rstrip(';')
                 elif line_lower.startswith("#artist:"):
                     artist = line.split(":")[1].strip().rstrip(';')
+                elif line_lower.startswith("#offset:"):
+                    offset = float(line.split(":")[1].strip().rstrip(';'))  # Capture the offset
                 elif line_lower.startswith("#bpms:"):
                     bpms_data = line.split(":")[1].strip().rstrip(';')
                     bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
+                elif line_lower.startswith("#samplestart:"):
+                    sample_start = float(line.split(':')[1].split(';')[0])
+                elif line_lower.startswith("#samplelength:"):
+                    sample_length = float(line.split(':')[1].split(';')[0])
                 elif line_lower.startswith("#notes:"):
+                    # Process the current chart before starting a new one
                     if in_notes_section and current_mode and current_difficulty_name and current_difficulty_level is not None:
                         chart = Chart(
                             mode=current_mode,
@@ -223,17 +234,12 @@ class Song:
                         measures = []
                     in_notes_section = True
                     current_difficulty_level = None  # Reset for each chart
-                elif line_lower.startswith("#samplestart:"):
-                    sample_start = float(line.split(':')[1].split(';')[0])
-                elif line_lower.startswith("#samplelength:"):
-                    sample_length = float(line.split(':')[1].split(';')[0])
                 elif in_notes_section:
                     if line.startswith("dance-single:") or line.startswith("dance-double:"):
                         current_mode = line.rstrip(':')
                     elif line.endswith(":") and not current_difficulty_name:
                         current_difficulty_name = line.rstrip(':').strip()
                     elif line[:-1].isdigit() and current_difficulty_level is None:
-                        # Capture the difficulty level correctly when the line contains a digit and hasn’t been set yet
                         current_difficulty_level = int(line[:-1])
                     elif line.startswith(","):
                         measures.append(notes_data)
@@ -255,7 +261,7 @@ class Song:
                     elif line.isnumeric():
                         notes_data.append(line)
 
-        return title, artist, sample_start, sample_length, bpms, charts
+        return title, artist, sample_start, sample_length, bpms, charts, offset
 
     @staticmethod
     def get_audio_duration(audio_file_path: str) -> float:
