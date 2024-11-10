@@ -20,30 +20,33 @@ class Beat:
 
 def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat], int):
     """
-    Pre-calculate the spawn times for measures and beats, handling BPM changes.
+    Pre-calculate the spawn times for measures and beats, handling BPM changes and stops.
 
-    :param song: The song object
-    :param chart: The chart object
-    :param exclude_inactive_beats: Whether to exclude beats with no arrows
+    :param song: The song object containing BPM and stop information.
+    :param chart: The chart object containing measure and beat data.
+    :param exclude_inactive_beats: Whether to exclude beats with no arrows.
 
-    :return: A tuple containing a list of Beat objects and the total note count
+    :return: A tuple containing a list of Beat objects and the total note count.
     """
     beats = []
-
     total_song_duration = song.duration  # Assuming the song object has a duration attribute in seconds
-
     bpm_list = song.bpms  # List of (beat, bpm) tuples
+    stop_list = song.stops  # List of (beat, duration) tuples
 
     current_bpm_index = 0
-    note_count = 0
     current_bpm = bpm_list[current_bpm_index][1]
     next_bpm_change_beat = bpm_list[current_bpm_index + 1][0] if current_bpm_index + 1 < len(bpm_list) else None
 
+    current_stop_index = 0
+    next_stop_beat = stop_list[current_stop_index][0] if stop_list else None
+    stop_time_accumulated = 0.0  # Accumulated stop time to adjust future beat times
+
     time = 0.0
+    note_count = 0
+
     for measure_index, measure in enumerate(chart.measures):
         n_note_rows_in_measure = len(measure)
         for note_row_index, beat in enumerate(measure):
-            # Compute the current beat number
             beat_number = measure_index * 4 + (note_row_index / n_note_rows_in_measure) * 4
 
             # Check for BPM change
@@ -52,20 +55,24 @@ def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat]
                 current_bpm = bpm_list[current_bpm_index][1]
                 next_bpm_change_beat = bpm_list[current_bpm_index + 1][0] if current_bpm_index + 1 < len(bpm_list) else None
 
-            # Calculate time per note row
+            # Check for a stop at this beat and adjust time accordingly
+            while next_stop_beat is not None and beat_number >= next_stop_beat:
+                stop_duration = stop_list[current_stop_index][1]
+                stop_time_accumulated += stop_duration
+                current_stop_index += 1
+                next_stop_beat = stop_list[current_stop_index][0] if current_stop_index < len(stop_list) else None
+
+            # Calculate time per note row considering the current BPM
             time_per_note_row = (4 * 60 / current_bpm) / n_note_rows_in_measure
 
-            # Convert hold notes to regular notes
-            beat = beat.replace("2", "1")
+            # Determine arrows, replace '2's with '1's in arrows_binary_string, and update note count
+            arrows_binary_string = beat.replace("2", "1")
+            arrows = [i for i, note in enumerate(arrows_binary_string) if note == "1"]
+            note_count += len(arrows)
 
-            arrows = []
-            for i, note in enumerate(beat):
-                if note == "1":
-                    arrows.append(i)
-                    note_count += 1
-
-            beat_time = time - song.offset
-            beat_normalized_time = (beat_time - song.offset) / total_song_duration
+            # Adjust beat time for stops and compute normalized time
+            beat_time = time + stop_time_accumulated - song.offset
+            beat_normalized_time = beat_time / total_song_duration
 
             if exclude_inactive_beats and not arrows:
                 time += time_per_note_row
@@ -75,12 +82,16 @@ def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat]
                     time=beat_time,
                     normalized_time=beat_normalized_time,
                     n_beats_in_measure=n_note_rows_in_measure,
-                    arrows_binary_string=beat,
+                    arrows_binary_string=arrows_binary_string,  # Use the modified string
                     arrows=arrows
                 ))
-                time += time_per_note_row
+
+            time += time_per_note_row  # Advance the time for the next beat
 
     return beats, note_count
+
+
+
 
 
 
