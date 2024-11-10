@@ -1,4 +1,5 @@
 from typing import List, Tuple, Dict, Any
+from modules.Music.Beat import Beat
 
 class Chart:
     def __init__(self, mode: str, difficulty_name: str, difficulty_level: int, measures: List[str]):
@@ -26,3 +27,7 @@ class Chart:
         self.difficulty_name = difficulty_name
         self.difficulty_level = difficulty_level
         self.measures = measures
+
+        self.note_count = 0
+        self.beats: List[Beat] = []
+        self.beats_as_resonite_string = ""

@@ -7,6 +7,9 @@ from typing import List, Tuple, Optional
 import logging
 import os
 import uuid
+from modules.utils.Loggers import configure_console_logger
+
+logger = logging.getLogger(__name__)
 
 class FlaskAppHandler:
     def __init__(self, host='0.0.0.0', base_url="http://servers.ikubaysan.com", port=5731, root_directory='./songs'):
@@ -114,10 +117,28 @@ class FlaskAppHandler:
                 abort(404)
             chart = song.charts[chart_idx]
 
-            beats = precalculate_beats(song=song, chart=chart, exclude_inactive_beats=True)
-            resonite_string = get_beats_as_resonite_string(beats)
+            if chart.beats_as_resonite_string == "":
+                # We have not precalculated the beats for this chart yet
+                beats, note_count = precalculate_beats(song=song, chart=chart, exclude_inactive_beats=True)
+                resonite_string = get_beats_as_resonite_string(beats)
 
-            return str(resonite_string)
+                chart.note_count = note_count
+                chart.beats = beats
+                chart.beats_as_resonite_string = resonite_string
+            else:
+                logger.info(f"Using precalculated beats for {song.name} - {chart.difficulty_name}")
+                resonite_string = chart.beats_as_resonite_string
+
+            return resonite_string
+
+        # Route to get a chart's note count
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/note_count', methods=['GET'])
+        def get_chart_note_count(group_idx, song_idx, chart_idx):
+            _, song = self.validate_indices(group_idx, song_idx)
+            if chart_idx >= len(song.charts) or chart_idx < 0:
+                abort(404)
+            return str(song.charts[chart_idx].note_count)
+
 
     def setup_file_routes(self):
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/jacket', methods=['GET'])
@@ -169,6 +190,7 @@ class FlaskAppHandler:
 
 
 if __name__ == "__main__":
+    configure_console_logger()
     # Change the working directory to the root of the project before running this.
     app = FlaskAppHandler(root_directory=os.path.abspath("../songs"))
     app.run()

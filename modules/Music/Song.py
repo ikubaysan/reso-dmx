@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Any
 from modules.Music.Chart import Chart
 from uuid import uuid4
 import os
@@ -84,7 +84,7 @@ class Song:
         # Check if the sample.ogg already exists
         sample_path = os.path.join(self.directory, 'reso-dmx-sample.ogg')
         if os.path.exists(sample_path):
-            logger.info(f"A sample file already exists for the song {self.name} in {self.directory}")
+            # logger.info(f"A sample file already exists for the song {self.name} in {self.directory}")
             return
 
         try:
@@ -151,7 +151,7 @@ class Song:
         """
 
         try:
-            title, artist, sample_start, sample_length, bpms, charts, offset = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
+            title, artist, sample_start, sample_length, bpms, stops, charts, offset = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
         except Exception as e:
             logger.error(f"Error parsing sm file for {self.name}: {str(e)}")
             return
@@ -174,6 +174,9 @@ class Song:
 
         self.min_bpm = min(item[1] for item in bpms)
         self.max_bpm = max(item[1] for item in bpms)
+
+        self.stops = stops
+
         # Remove charts that are not mode "dance-single" (eg. "dance-double")
         self.charts = [chart for chart in charts if chart.mode == "dance-single"]
         # Sort the charts by difficulty level ascending
@@ -185,12 +188,13 @@ class Song:
         return
 
     @staticmethod
-    @staticmethod
-    def parse_sm_file(sm_file_path: str) -> Tuple[
-        str, str, float, float, List[Tuple[float, float]], List[Dict[str, Any]], float]:
+    def parse_sm_file(sm_file_path: str) -> tuple[
+        str, str, float, float, list[Any] | list[tuple[float, ...]], list[Any] | list[tuple[float, ...]], list[
+            Chart], float]:
         title = ""
         artist = ""
         bpms = []
+        stops = []
         charts = []
         sample_start = 0.0
         sample_length = 0.0
@@ -217,6 +221,16 @@ class Song:
                 elif line_lower.startswith("#bpms:"):
                     bpms_data = line.split(":")[1].strip().rstrip(';')
                     bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
+                elif line_lower.startswith("#stops:"):
+                    try:
+                        stops_data = line.split(":")[1].strip().rstrip(';')
+                        if stops_data:
+                            stops = [
+                                tuple(map(float, stop.split("=")))
+                                for stop in stops_data.split(",") if stop  # Exclude empty strings
+                            ]
+                    except Exception as e:
+                        logger.error(f"Error parsing stops in line '{line}': {e}")
                 elif line_lower.startswith("#samplestart:"):
                     sample_start = float(line.split(':')[1].split(';')[0])
                 elif line_lower.startswith("#samplelength:"):
@@ -261,7 +275,7 @@ class Song:
                     elif line.isnumeric():
                         notes_data.append(line)
 
-        return title, artist, sample_start, sample_length, bpms, charts, offset
+        return title, artist, sample_start, sample_length, bpms, stops, charts, offset
 
     @staticmethod
     def get_audio_duration(audio_file_path: str) -> float:

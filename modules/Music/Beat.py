@@ -1,6 +1,4 @@
 from typing import List, Optional
-from modules.Music.Song import Song
-from modules.Music.Chart import Chart
 import os
 
 
@@ -20,9 +18,15 @@ class Beat:
         self.n_beats_in_measure = n_beats_in_measure
 
 
-def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -> List[Beat]:
+def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat], int):
     """
     Pre-calculate the spawn times for measures and beats, handling BPM changes.
+
+    :param song: The song object
+    :param chart: The chart object
+    :param exclude_inactive_beats: Whether to exclude beats with no arrows
+
+    :return: A tuple containing a list of Beat objects and the total note count
     """
     beats = []
 
@@ -31,6 +35,7 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
     bpm_list = song.bpms  # List of (beat, bpm) tuples
 
     current_bpm_index = 0
+    note_count = 0
     current_bpm = bpm_list[current_bpm_index][1]
     next_bpm_change_beat = bpm_list[current_bpm_index + 1][0] if current_bpm_index + 1 < len(bpm_list) else None
 
@@ -57,6 +62,7 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
             for i, note in enumerate(beat):
                 if note == "1":
                     arrows.append(i)
+                    note_count += 1
 
             beat_time = time - song.offset
             beat_normalized_time = (beat_time - song.offset) / total_song_duration
@@ -74,7 +80,7 @@ def precalculate_beats(song: Song, chart: Chart, exclude_inactive_beats: bool) -
                 ))
                 time += time_per_note_row
 
-    return beats
+    return beats, note_count
 
 
 
@@ -93,6 +99,7 @@ def get_beats_as_resonite_string(beats: List[Beat]) -> str:
 
 
 if __name__ == "__main__":
+    from modules.Music.Song import Song
     selected_song = Song(name="bass 2 bass",
                          audio_file="bass 2 bass.ogg",
                          sm_file="bass 2 bass.sm",
