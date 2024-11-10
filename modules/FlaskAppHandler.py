@@ -22,6 +22,7 @@ class FlaskAppHandler:
         self.file_guid_map = {}  # Dictionary to store GUID to file path mapping
         self.setup_routes()
         self.setup_logging()
+        self.force_always_precalculate_beats = True
         self.logger.info(f"Flask server started on {self.host}:{self.port} with root directory {os.path.abspath(self.root_directory)}")
         if base_url:
             self.logger.info(f"Base URL: {self.base_url}")
@@ -117,7 +118,7 @@ class FlaskAppHandler:
                 abort(404)
             chart = song.charts[chart_idx]
 
-            if chart.beats_as_resonite_string == "":
+            if chart.beats_as_resonite_string == "" or self.force_always_precalculate_beats:
                 # We have not precalculated the beats for this chart yet
                 beats, note_count = precalculate_beats(song=song, chart=chart, exclude_inactive_beats=True)
                 resonite_string = get_beats_as_resonite_string(beats)

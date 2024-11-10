@@ -272,7 +272,8 @@ class Song:
                             current_difficulty_level = None
                             notes_data = []
                             measures = []
-                    elif line.isnumeric():
+                    elif len(line) == 4 and all(c in '01M' for c in line.upper()):
+                        # Line is a beat with 4 chars, and is a 0, 1, or M
                         notes_data.append(line)
 
         return title, artist, sample_start, sample_length, bpms, stops, charts, offset
