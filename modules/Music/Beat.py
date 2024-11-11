@@ -65,8 +65,10 @@ def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat]
             # Calculate time per note row considering the current BPM
             time_per_note_row = (4 * 60 / current_bpm) / n_note_rows_in_measure
 
-            # Determine arrows, replace '2's with '1's in arrows_binary_string, and update note count
-            arrows_binary_string = beat.replace("2", "1")
+            # Determine arrows, replace '2' (start of holds)
+            # and '4' (start of rolls) with '1's (taps) in arrows_binary_string,
+            # and update note count
+            arrows_binary_string = beat.replace("2", "1").replace("4", "1")
             arrows = [i for i, note in enumerate(arrows_binary_string) if note == "1"]
             note_count += len(arrows)
 

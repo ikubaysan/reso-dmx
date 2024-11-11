@@ -260,6 +260,8 @@ class Song:
                         notes_data = []
                     elif line.startswith(";"):
                         in_notes_section = False
+                        if notes_data:  # Append any remaining notes in the last measure
+                            measures.append(notes_data)
                         if current_mode and current_difficulty_name and current_difficulty_level is not None:
                             chart = Chart(
                                 mode=current_mode,
@@ -272,8 +274,8 @@ class Song:
                             current_difficulty_level = None
                             notes_data = []
                             measures = []
-                    elif len(line) == 4 and all(c in '01M' for c in line.upper()):
-                        # Line is a beat with 4 chars, and is a 0, 1, or M
+                    elif len(line) == 4 and all(c in '01234M' for c in line.upper()):
+                        # Line is a beat with 4 chars, each being 0, 1, 2, 3, 4, or M
                         notes_data.append(line)
 
         return title, artist, sample_start, sample_length, bpms, stops, charts, offset
