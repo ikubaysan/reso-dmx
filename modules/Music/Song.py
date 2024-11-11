@@ -219,18 +219,24 @@ class Song:
                 elif line_lower.startswith("#offset:"):
                     offset = float(line.split(":")[1].strip().rstrip(';'))  # Capture the offset
                 elif line_lower.startswith("#bpms:"):
-                    bpms_data = line.split(":")[1].strip().rstrip(';')
+                    bpms_data = line.split(":", 1)[1].strip()
+                    # Continue reading lines until the semicolon is found
+                    while not bpms_data.endswith(";"):
+                        bpms_data += sm_file.readline().strip()
+                    # Remove the trailing semicolon and parse
+                    bpms_data = bpms_data.rstrip(";")
                     bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
                 elif line_lower.startswith("#stops:"):
-                    try:
-                        stops_data = line.split(":")[1].strip().rstrip(';')
-                        if stops_data:
-                            stops = [
-                                tuple(map(float, stop.split("=")))
-                                for stop in stops_data.split(",") if stop  # Exclude empty strings
-                            ]
-                    except Exception as e:
-                        logger.error(f"Error parsing stops in line '{line}': {e}")
+                    stops_data = line.split(":", 1)[1].strip()
+                    # Continue reading lines until the semicolon is found
+                    while not stops_data.endswith(";"):
+                        stops_data += sm_file.readline().strip()
+                    # Remove the trailing semicolon and parse
+                    stops_data = stops_data.rstrip(";")
+                    if stops_data:
+                        stops = [
+                            tuple(map(float, stop.split("="))) for stop in stops_data.split(",") if stop
+                        ]
                 elif line_lower.startswith("#samplestart:"):
                     sample_start = float(line.split(':')[1].split(';')[0])
                 elif line_lower.startswith("#samplelength:"):
