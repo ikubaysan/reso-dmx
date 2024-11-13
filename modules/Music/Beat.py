@@ -97,6 +97,7 @@ def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat]
 
 
 
+
 def get_beats_as_resonite_string(beats: List[Beat]) -> str:
     """
     Convert a list of Beat objects into a resonite string.

@@ -22,10 +22,6 @@ class Group:
             logger.warning(f"Song {song.name} at {song.directory} has no BPMs - skipping.")
             return
 
-        if len(song.bpms) > 1:
-            # raise NotImplementedError("BPM changes are not supported yet.")
-            return
-
         if song.duration == 0:
             logger.warning(f"Song {song.name} has a duration of 0 seconds - skipping.")
             return
