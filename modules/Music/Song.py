@@ -162,11 +162,6 @@ class Song:
         self.sample_length = sample_length
         self.offset = offset  # Store the parsed offset
 
-        # Check if there’s more than 1 BPM and if all BPMs are within 1 BPM of each other
-        # If so, keep only the last BPM
-        if len(bpms) > 1 and all(abs(bpms[i][1] - bpms[i + 1][1]) < 1 for i in range(len(bpms) - 1)):
-            bpms = [(0.0, bpms[-1][1])]
-
         self.bpms = bpms
 
         if len(self.bpms) == 0:
