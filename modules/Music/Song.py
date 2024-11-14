@@ -234,6 +234,7 @@ class Song:
                     # Remove the trailing semicolon and parse
                     stops_data = stops_data.rstrip(";")
                     if stops_data:
+                        # The duration of the stops is the second value in each tuple, and it's in seconds
                         stops = [
                             tuple(map(float, stop.split("="))) for stop in stops_data.split(",") if stop
                         ]
