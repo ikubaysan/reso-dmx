@@ -47,6 +47,7 @@ class Song:
         self.detect_jacket()
         self.detect_background()
         self.uuid = str(uuid4())
+        self.loaded = False
         return
 
     def get_ogg_audio_file_path(self, original_audio_file_path: str) -> str:
@@ -153,14 +154,14 @@ class Song:
         try:
             title, artist, sample_start, sample_length, bpms, stops, charts, offset = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
         except Exception as e:
-            logger.error(f"Song {self.name} simfile could not be read: {str(e)}")
+            logger.error(f"Song {self.name} simfile in {self.directory} could not be read: {str(e)}")
             return
 
         # Check for overlapping BPM changes and stops
         bpm_beats = {bpm[0] for bpm in bpms}
         stop_beats = {stop[0] for stop in stops}
         if bpm_beats & stop_beats:  # Check if there are any common elements
-            logger.warning(f"Song {self.name} has overlapping BPM changes and stops. Skipping chart load.")
+            logger.warning(f"Song {self.name} in {self.directory} has overlapping BPM changes and stops. Skipping chart load.")
             return
 
         self.title = title
@@ -172,7 +173,10 @@ class Song:
         self.bpms = bpms
 
         if len(self.bpms) == 0:
+            logger.warning(f"Song {self.name} in {self.directory} has no BPMs - skipping.")
             return
+
+        self.loaded = True
 
         self.min_bpm = min(item[1] for item in bpms)
         self.max_bpm = max(item[1] for item in bpms)

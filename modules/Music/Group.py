@@ -18,8 +18,7 @@ class Group:
 
         song.load_charts()
 
-        if len(song.bpms) == 0:
-            logger.warning(f"Song {song.name} at {song.directory} has no BPMs - skipping.")
+        if not song.loaded:
             return
 
         if song.duration == 0:
