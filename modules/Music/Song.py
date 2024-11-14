@@ -157,13 +157,6 @@ class Song:
             logger.error(f"Song {self.name} simfile in {self.directory} could not be read: {str(e)}")
             return
 
-        # Check for overlapping BPM changes and stops
-        bpm_beats = {bpm[0] for bpm in bpms}
-        stop_beats = {stop[0] for stop in stops}
-        if bpm_beats & stop_beats:  # Check if there are any common elements
-            logger.warning(f"Song {self.name} in {self.directory} has overlapping BPM changes and stops. Skipping chart load.")
-            return
-
         self.title = title
         self.artist = artist
         self.sample_start = sample_start
