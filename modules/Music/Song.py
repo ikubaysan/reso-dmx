@@ -153,7 +153,14 @@ class Song:
         try:
             title, artist, sample_start, sample_length, bpms, stops, charts, offset = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
         except Exception as e:
-            logger.error(f"Error parsing sm file for {self.name}: {str(e)}")
+            logger.error(f"Song {self.name} simfile could not be read: {str(e)}")
+            return
+
+        # Check for overlapping BPM changes and stops
+        bpm_beats = {bpm[0] for bpm in bpms}
+        stop_beats = {stop[0] for stop in stops}
+        if bpm_beats & stop_beats:  # Check if there are any common elements
+            logger.warning(f"Song {self.name} has overlapping BPM changes and stops. Skipping chart load.")
             return
 
         self.title = title
