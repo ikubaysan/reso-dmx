@@ -4,7 +4,11 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.server_api import ServerApi
 from Config import Config
 from typing import List, Dict, Any, Optional
+import logging
 import datetime
+
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseClient:
@@ -19,9 +23,9 @@ class DatabaseClient:
         self.client = MongoClient(uri, server_api=ServerApi('1'))
         try:
             self.client.admin.command('ping')
-            print("Pinged your deployment. You successfully connected to MongoDB!")
+            logger.info("Pinged your deployment. You successfully connected to MongoDB!")
         except Exception as e:
-            print(e)
+            logger.error(e)
         self.db = self.client['stepmania_game']
         self.scores_collection = self.db['scores']
         self.settings_collection = self.db['settings']
@@ -39,7 +43,7 @@ class DatabaseClient:
         )
         self.settings_collection.create_index('username', unique=True)
 
-    def add_score(self, username: str, group_id: str, song_id: str, chart_id: str, int_score: int,
+    def add_score(self, username: str, group_id: str, song_id: str, chart_id: str,
                   percentage_score: float, timestamp: int) -> None:
         """
         Add a new score entry to the database. limit_scores() will then be called,
@@ -49,7 +53,6 @@ class DatabaseClient:
         :param group_id: The ID of the group.
         :param song_id: The ID of the song.
         :param chart_id: The ID of the chart.
-        :param int_score: The integer score.
         :param percentage_score: The percentage score.
         :param timestamp: The time the score was achieved, as an epoch integer.
         """
@@ -58,7 +61,6 @@ class DatabaseClient:
             "group_id": group_id,
             "song_id": song_id,
             "chart_id": chart_id,
-            "int_score": int_score,
             "percentage_score": percentage_score,
             "timestamp": timestamp
         }
@@ -154,16 +156,16 @@ if __name__ == "__main__":
 
     # Example usage
     db_client.set_user_settings("player1", 1.5, 0.1, "default")
-    print(db_client.get_user_settings("player1"))
+    logger.info(db_client.get_user_settings("player1"))
 
     now = int(datetime.datetime.now().timestamp())
-    db_client.add_score("player1", "group1", "song1", "chart1", 100000, 99.5, now)
-    db_client.add_score("player1", "group1", "song1", "chart1", 90000, 89.5, now)
-    db_client.add_score("player2", "group1", "song1", "chart1", 95000, 94.5, now)
-    db_client.add_score("player2", "group1", "song1", "chart1", 96000, 96.0, now)
-    db_client.add_score("player3", "group1", "song1", "chart1", 85000, 85.0, now)
-    db_client.add_score("player4", "group1", "song1", "chart1", 75000, 75.0, now)
-    db_client.add_score("player5", "group1", "song1", "chart1", 65000, 65.0, now)
-    db_client.add_score("player5", "group1", "song1", "chart1", 70000, 70.0, now)
+    db_client.add_score("player1", "group1", "song1", "chart1", 99.5, now)
+    db_client.add_score("player1", "group1", "song1", "chart1", 89.5, now)
+    db_client.add_score("player2", "group1", "song1", "chart1", 94.5, now)
+    db_client.add_score("player2", "group1", "song1", "chart1", 96.0, now)
+    db_client.add_score("player3", "group1", "song1", "chart1", 85.0, now)
+    db_client.add_score("player4", "group1", "song1", "chart1", 75.0, now)
+    db_client.add_score("player5", "group1", "song1", "chart1", 65.0, now)
+    db_client.add_score("player5", "group1", "song1", "chart1", 70.0, now)
 
-    print(db_client.get_top_scores("group1", "song1", "chart1", limit=5))
+    logger.info(db_client.get_top_scores("group1", "song1", "chart1", limit=5))
