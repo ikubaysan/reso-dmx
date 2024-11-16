@@ -139,20 +139,36 @@ class DatabaseClient:
 
         return list(self.scores_collection.aggregate(pipeline))
 
-    def set_user_settings(self, username: str, scroll_speed: float, timing_offset: float, noteskin: str) -> None:
+    def set_user_settings(self, username: str, scroll_speed: float, noteskin: str,
+                          controller: str, controller_buttons: Dict[str, str],
+                          visual_timing_offset: float, judgement_timing_offset: float,
+                          height_of_notes_area: float, arrow_x_axis_spacing: float,
+                          note_scroll_direction: str) -> None:
         """
         Set or update a user's settings.
 
         :param username: The username of the player.
         :param scroll_speed: The scroll speed setting.
-        :param timing_offset: The timing offset setting.
         :param noteskin: The noteskin setting.
+        :param controller: The controller type.
+        :param controller_buttons: Mapping of controller buttons (e.g., button_0, button_1).
+        :param visual_timing_offset: Visual timing offset for display.
+        :param judgement_timing_offset: Timing offset for judgement.
+        :param height_of_notes_area: Height of the notes area.
+        :param arrow_x_axis_spacing: Spacing of arrows on the x-axis.
+        :param note_scroll_direction: Scroll direction for notes.
         """
         settings = {
             "username": username,
             "scroll_speed": scroll_speed,
-            "timing_offset": timing_offset,
-            "noteskin": noteskin
+            "noteskin": noteskin,
+            "controller": controller,
+            "controller_buttons": controller_buttons,
+            "visual_timing_offset": visual_timing_offset,
+            "judgement_timing_offset": judgement_timing_offset,
+            "height_of_notes_area": height_of_notes_area,
+            "arrow_x_axis_spacing": arrow_x_axis_spacing,
+            "note_scroll_direction": note_scroll_direction,
         }
         self.settings_collection.update_one({"username": username}, {"$set": settings}, upsert=True)
 
@@ -163,7 +179,8 @@ class DatabaseClient:
         :param username: The username of the player.
         :return: A dictionary containing the user's settings or None if not found.
         """
-        return self.settings_collection.find_one({"username": username})
+        result = self.settings_collection.find_one({"username": username})
+        return serialize_mongo_document(result)
 
 
 if __name__ == "__main__":

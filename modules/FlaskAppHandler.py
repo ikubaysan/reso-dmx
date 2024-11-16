@@ -111,20 +111,40 @@ class FlaskAppHandler:
         def settings():
             """
             Set or retrieve user settings.
-            - POST Example URL: /db/settings?username=player1&scroll_speed=1.5&timing_offset=0.1&noteskin=default
+            - POST Example URL: /db/settings?username=player1&scroll_speed=1.5&noteskin=default&controller=Xbox&
+                                controller_button_0=A&controller_button_1=B&controller_button_2=X&
+                                controller_button_3=Y&visual_timing_offset=0.05&judgement_timing_offset=0.1&
+                                height_of_notes_area=500&arrow_x_axis_spacing=50&note_scroll_direction=up
             - GET Example URL: /db/settings?username=player1
             """
             if request.method == 'POST':
                 # Setting user settings
                 username = request.args.get('username')
                 scroll_speed = float(request.args.get('scroll_speed', 0))
-                timing_offset = float(request.args.get('timing_offset', 0))
-                noteskin = request.args.get('noteskin')
+                noteskin = request.args.get('noteskin', '')
+                controller = request.args.get('controller', '')
+                visual_timing_offset = float(request.args.get('visual_timing_offset', 0))
+                judgement_timing_offset = float(request.args.get('judgement_timing_offset', 0))
+                height_of_notes_area = float(request.args.get('height_of_notes_area', 0))
+                arrow_x_axis_spacing = float(request.args.get('arrow_x_axis_spacing', 0))
+                note_scroll_direction = request.args.get('note_scroll_direction', '')
 
-                if not all([username, scroll_speed, timing_offset, noteskin]):
-                    return make_response("Missing parameters", 400)
+                # Controller buttons
+                controller_buttons = {
+                    "button_0": request.args.get('controller_button_0', ''),
+                    "button_1": request.args.get('controller_button_1', ''),
+                    "button_2": request.args.get('controller_button_2', ''),
+                    "button_3": request.args.get('controller_button_3', ''),
+                }
 
-                self.db_client.set_user_settings(username, scroll_speed, timing_offset, noteskin)
+                if not username:
+                    return make_response("Missing username parameter", 400)
+
+                self.db_client.set_user_settings(
+                    username, scroll_speed, noteskin, controller, controller_buttons,
+                    visual_timing_offset, judgement_timing_offset,
+                    height_of_notes_area, arrow_x_axis_spacing, note_scroll_direction
+                )
                 return jsonify({"message": "User settings updated successfully"})
 
             elif request.method == 'GET':
