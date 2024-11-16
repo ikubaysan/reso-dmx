@@ -3,6 +3,7 @@ from modules.Music.Group import Group
 from modules.Music.Song import Song
 from modules.Music.Group import find_songs
 from modules.Music.Beat import precalculate_beats, get_beats_as_resonite_string
+from modules.Config import Config
 from typing import List, Tuple, Optional
 import logging
 import os
@@ -12,10 +13,11 @@ from modules.utils.Loggers import configure_console_logger
 logger = logging.getLogger(__name__)
 
 class FlaskAppHandler:
-    def __init__(self, host='0.0.0.0', base_url="http://servers.ikubaysan.com", port=5731, root_directory='./songs'):
+    def __init__(self, config: Config, host='0.0.0.0', base_url="http://servers.ikubaysan.com", port=5731, root_directory='./songs'):
         self.app = Flask(__name__)
         self.host = host
         self.base_url = base_url
+        self.config = config
         self.port = port
         self.root_directory = root_directory
         self.groups = find_songs(self.root_directory)
@@ -192,6 +194,7 @@ class FlaskAppHandler:
 
 if __name__ == "__main__":
     configure_console_logger()
+    config = Config(config_file_path="./config.json")
     # Change the working directory to the root of the project before running this.
-    app = FlaskAppHandler(root_directory=os.path.abspath("../songs"))
+    app = FlaskAppHandler(config=config, root_directory=os.path.abspath("../songs"))
     app.run()
