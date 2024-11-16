@@ -1,25 +1,13 @@
-from modules.Music.Group import Group, find_songs
-from modules.utils.Loggers import configure_console_logger
+from modules.FlaskAppHandler import FlaskAppHandler
+import time
+import os
 import logging
-
-configure_console_logger()
-logger = logging.getLogger(__name__)
+from modules.utils.Loggers import configure_console_logger
 
 
-def main():
-    root_directory = './songs'
-    groups = find_songs(root_directory)
-
-    total_songs = sum(len(group.songs) for group in groups)
-
-    logger.info(f"Found {total_songs} songs in {len(groups)} groups.")
-    for group in groups:
-        logger.info(f"Group: {group.name}, Songs: {len(group.songs)}")
-        for song in group.songs:
-            logger.info(f"Song: {song.name}, Duration: {song.duration} seconds")
-
-    return
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    configure_console_logger()
+    logger = logging.getLogger(__name__)
+    logger.info("Starting Flask app...")
+    flask_app = FlaskAppHandler(host="0.0.0.0", port=5731, root_directory=os.path.abspath("./songs"))
+    flask_app.run()

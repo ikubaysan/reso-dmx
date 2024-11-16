@@ -29,68 +29,71 @@ def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat]
     :return: A tuple containing a list of Beat objects and the total note count.
     """
     beats = []
-    total_song_duration = song.duration  # Assuming the song object has a duration attribute in seconds
+    total_song_duration = song.duration  # Ensure this includes the duration added by stops
     bpm_list = song.bpms  # List of (beat, bpm) tuples
     stop_list = song.stops  # List of (beat, duration) tuples
 
-    current_bpm_index = 0
-    current_bpm = bpm_list[current_bpm_index][1]
-    next_bpm_change_beat = bpm_list[current_bpm_index + 1][0] if current_bpm_index + 1 < len(bpm_list) else None
+    # Combine BPM changes and stops into a single sorted event list
+    timing_events = [{'beat': beat, 'type': 'BPM', 'value': bpm} for beat, bpm in bpm_list]
+    timing_events += [{'beat': beat, 'type': 'STOP', 'value': duration} for beat, duration in stop_list]
+    timing_events.sort(key=lambda x: x['beat'])
 
-    current_stop_index = 0
-    next_stop_beat = stop_list[current_stop_index][0] if stop_list else None
-    stop_time_accumulated = 0.0  # Accumulated stop time to adjust future beat times
+    current_bpm = bpm_list[0][1]
+    current_time = -song.offset  # Start time adjusted by song offset
+    current_beat = 0.0
+    event_index = 0
 
-    time = 0.0
     note_count = 0
 
     for measure_index, measure in enumerate(chart.measures):
         n_note_rows_in_measure = len(measure)
         for note_row_index, beat in enumerate(measure):
-            beat_number = measure_index * 4 + (note_row_index / n_note_rows_in_measure) * 4
+            beat_fraction = note_row_index / n_note_rows_in_measure
+            beat_number = measure_index * 4 + beat_fraction * 4
 
-            # Check for BPM change
-            while next_bpm_change_beat is not None and beat_number >= next_bpm_change_beat:
-                current_bpm_index += 1
-                current_bpm = bpm_list[current_bpm_index][1]
-                next_bpm_change_beat = bpm_list[current_bpm_index + 1][0] if current_bpm_index + 1 < len(bpm_list) else None
+            # Process all timing events up to the current beat
+            while event_index < len(timing_events) and timing_events[event_index]['beat'] <= beat_number:
+                event = timing_events[event_index]
+                delta_beats = event['beat'] - current_beat
+                delta_time = (delta_beats * 60) / current_bpm
+                current_time += delta_time
+                current_beat = event['beat']
 
-            # Check for a stop at this beat and adjust time accordingly
-            while next_stop_beat is not None and beat_number >= next_stop_beat:
-                stop_duration = stop_list[current_stop_index][1]
-                stop_time_accumulated += stop_duration
-                current_stop_index += 1
-                next_stop_beat = stop_list[current_stop_index][0] if current_stop_index < len(stop_list) else None
+                if event['type'] == 'BPM':
+                    current_bpm = event['value']
+                elif event['type'] == 'STOP':
+                    current_time += event['value']  # Adjust time for the stop
 
-            # Calculate time per note row considering the current BPM
-            time_per_note_row = (4 * 60 / current_bpm) / n_note_rows_in_measure
+                event_index += 1
 
-            # Determine arrows, replace '2' (start of holds)
-            # and '4' (start of rolls) with '1's (taps) in arrows_binary_string,
-            # and update note count
+            # Compute time from current_beat to beat_number
+            delta_beats = beat_number - current_beat
+            delta_time = (delta_beats * 60) / current_bpm
+            current_time += delta_time
+            current_beat = beat_number
+
+            # Determine arrows and update note count
             arrows_binary_string = beat.replace("2", "1").replace("4", "1")
             arrows = [i for i, note in enumerate(arrows_binary_string) if note == "1"]
             note_count += len(arrows)
 
-            # Adjust beat time for stops and compute normalized time
-            beat_time = time + stop_time_accumulated - song.offset
-            beat_normalized_time = beat_time / total_song_duration
+            # Compute normalized time
+            beat_normalized_time = current_time / total_song_duration
 
             if exclude_inactive_beats and not arrows:
-                time += time_per_note_row
                 continue
             else:
                 beats.append(Beat(
-                    time=beat_time,
+                    time=current_time,
                     normalized_time=beat_normalized_time,
                     n_beats_in_measure=n_note_rows_in_measure,
-                    arrows_binary_string=arrows_binary_string,  # Use the modified string
+                    arrows_binary_string=arrows_binary_string,
                     arrows=arrows
                 ))
 
-            time += time_per_note_row  # Advance the time for the next beat
-
     return beats, note_count
+
+
 
 
 
