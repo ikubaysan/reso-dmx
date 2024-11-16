@@ -14,5 +14,5 @@ if __name__ == '__main__':
     flask_app = FlaskAppHandler(config=config,
                                 host="0.0.0.0",
                                 port=5731,
-                                root_directory=os.path.abspath("./songs"))
+                                root_directory=os.path.abspath("./songs/ignore"))
     flask_app.run()

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, abort, make_response, url_for, send_from_directory
+from flask import Flask, jsonify, abort, make_response, url_for, send_from_directory, request
 from modules.Music.Group import Group
 from modules.Music.Song import Song
 from modules.Music.Group import find_songs
@@ -11,13 +11,14 @@ import uuid
 from modules.utils.Loggers import configure_console_logger
 
 logger = logging.getLogger(__name__)
-
+from modules.DatabaseClient import DatabaseClient
 class FlaskAppHandler:
     def __init__(self, config: Config, host='0.0.0.0', base_url="http://servers.ikubaysan.com", port=5731, root_directory='./songs'):
         self.app = Flask(__name__)
         self.host = host
         self.base_url = base_url
         self.config = config
+        self.db_client = DatabaseClient(self.config)
         self.port = port
         self.root_directory = root_directory
         self.groups = find_songs(self.root_directory)
@@ -46,9 +47,103 @@ class FlaskAppHandler:
             return group, group.songs[song_idx]
         return group, None
 
+    def setup_db_routes(self):
+        """
+        Set up API routes for interacting with the database.
+        """
+
+        @self.app.route('/db/score', methods=['GET', 'POST'])
+        def score():
+            """
+            Add or retrieve a score entry.
+            - POST Example URL: /db/score?username=player1&group_id=group1&song_id=song1&chart_id=chart1&percentage_score=95.5&timestamp=1699999999
+            - GET Example URL: /db/score?username=player1&group_id=group1&song_id=song1&chart_id=chart1
+            """
+            if request.method == 'POST':
+                # Adding a score
+                username = request.args.get('username')
+                group_id = request.args.get('group_id')
+                song_id = request.args.get('song_id')
+                chart_id = request.args.get('chart_id')
+                percentage_score = float(request.args.get('percentage_score', 0))
+                timestamp = int(request.args.get('timestamp', 0))
+
+                if not all([username, group_id, song_id, chart_id, percentage_score, timestamp]):
+                    return make_response("Missing parameters", 400)
+
+                self.db_client.add_score(username, group_id, song_id, chart_id, percentage_score, timestamp)
+                return jsonify({"message": "Score added successfully"})
+
+            elif request.method == 'GET':
+                # Retrieving a score
+                username = request.args.get('username')
+                group_id = request.args.get('group_id')
+                song_id = request.args.get('song_id')
+                chart_id = request.args.get('chart_id')
+
+                if not all([username, group_id, song_id, chart_id]):
+                    return make_response("Missing parameters", 400)
+
+                score = self.db_client.get_user_score(username, group_id, song_id, chart_id)
+                if score:
+                    return jsonify(score)
+                else:
+                    return make_response("Score not found", 404)
+
+        @self.app.route('/db/top_scores', methods=['GET'])
+        def top_scores():
+            """
+            Retrieve the top scores for a specific chart.
+            Example URL: /db/top_scores?group_id=group1&song_id=song1&chart_id=chart1&limit=5
+            """
+            group_id = request.args.get('group_id')
+            song_id = request.args.get('song_id')
+            chart_id = request.args.get('chart_id')
+            limit = int(request.args.get('limit', 10))
+
+            if not all([group_id, song_id, chart_id]):
+                return make_response("Missing parameters", 400)
+
+            top_scores = self.db_client.get_top_scores(group_id, song_id, chart_id, limit)
+            return jsonify(top_scores)
+
+        @self.app.route('/db/settings', methods=['GET', 'POST'])
+        def settings():
+            """
+            Set or retrieve user settings.
+            - POST Example URL: /db/settings?username=player1&scroll_speed=1.5&timing_offset=0.1&noteskin=default
+            - GET Example URL: /db/settings?username=player1
+            """
+            if request.method == 'POST':
+                # Setting user settings
+                username = request.args.get('username')
+                scroll_speed = float(request.args.get('scroll_speed', 0))
+                timing_offset = float(request.args.get('timing_offset', 0))
+                noteskin = request.args.get('noteskin')
+
+                if not all([username, scroll_speed, timing_offset, noteskin]):
+                    return make_response("Missing parameters", 400)
+
+                self.db_client.set_user_settings(username, scroll_speed, timing_offset, noteskin)
+                return jsonify({"message": "User settings updated successfully"})
+
+            elif request.method == 'GET':
+                # Retrieving user settings
+                username = request.args.get('username')
+
+                if not username:
+                    return make_response("Missing username parameter", 400)
+
+                settings = self.db_client.get_user_settings(username)
+                if settings:
+                    return jsonify(settings)
+                else:
+                    return make_response("Settings not found", 404)
+
     def setup_routes(self):
         self.setup_api_routes()
         self.setup_file_routes()
+        self.setup_db_routes()
 
         @self.app.errorhandler(404)
         def not_found(error):

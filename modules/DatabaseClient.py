@@ -2,13 +2,28 @@
 
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.server_api import ServerApi
-from Config import Config
+from modules.Config import Config
 from typing import List, Dict, Any, Optional
 import logging
 import datetime
+from bson import ObjectId
 
 
 logger = logging.getLogger(__name__)
+
+
+def serialize_mongo_document(doc):
+    """
+    Recursively convert ObjectId in a MongoDB document to string.
+    """
+    if isinstance(doc, dict):
+        return {key: serialize_mongo_document(value) for key, value in doc.items()}
+    elif isinstance(doc, list):
+        return [serialize_mongo_document(item) for item in doc]
+    elif isinstance(doc, ObjectId):
+        return str(doc)
+    else:
+        return doc
 
 
 class DatabaseClient:
@@ -96,8 +111,9 @@ class DatabaseClient:
         :param chart_id: The ID of the chart.
         :return: A dictionary containing the score information or None if not found.
         """
-        return self.scores_collection.find_one(
+        result = self.scores_collection.find_one(
             {"username": username, "group_id": group_id, "song_id": song_id, "chart_id": chart_id})
+        return serialize_mongo_document(result)
 
     def get_top_scores(self, group_id: str, song_id: str, chart_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
