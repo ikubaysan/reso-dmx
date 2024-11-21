@@ -7,7 +7,6 @@ from modules.Config import Config
 from typing import List, Tuple, Optional
 import logging
 import os
-import uuid
 from modules.utils.Loggers import configure_console_logger
 
 logger = logging.getLogger(__name__)
@@ -56,35 +55,35 @@ class FlaskAppHandler:
         def score():
             """
             Add or retrieve a score entry.
-            - POST Example URL: /db/score?username=player1&group_id=group1&song_id=song1&chart_id=chart1&percentage_score=95.5&timestamp=1699999999
-            - GET Example URL: /db/score?username=player1&group_id=group1&song_id=song1&chart_id=chart1
+            - POST Example URL: /db/score?user_id=player1&group_id=group1&song_id=song1&chart_id=chart1&percentage_score=95.5&timestamp=1699999999
+            - GET Example URL: /db/score?user_id=player1&group_id=group1&song_id=song1&chart_id=chart1
             """
             if request.method == 'POST':
                 # Adding a score
-                username = request.args.get('username')
+                user_id = request.args.get('user_id')
                 group_id = request.args.get('group_id')
                 song_id = request.args.get('song_id')
                 chart_id = request.args.get('chart_id')
                 percentage_score = float(request.args.get('percentage_score', 0))
                 timestamp = int(request.args.get('timestamp', 0))
 
-                if not all([username, group_id, song_id, chart_id, percentage_score, timestamp]):
+                if not all([user_id, group_id, song_id, chart_id, percentage_score, timestamp]):
                     return make_response("Missing parameters", 400)
 
-                self.db_client.add_score(username, group_id, song_id, chart_id, percentage_score, timestamp)
+                self.db_client.add_score(user_id, group_id, song_id, chart_id, percentage_score, timestamp)
                 return jsonify({"message": "Score added successfully"})
 
             elif request.method == 'GET':
                 # Retrieving a score
-                username = request.args.get('username')
+                user_id = request.args.get('user_id')
                 group_id = request.args.get('group_id')
                 song_id = request.args.get('song_id')
                 chart_id = request.args.get('chart_id')
 
-                if not all([username, group_id, song_id, chart_id]):
+                if not all([user_id, group_id, song_id, chart_id]):
                     return make_response("Missing parameters", 400)
 
-                score = self.db_client.get_user_score(username, group_id, song_id, chart_id)
+                score = self.db_client.get_user_score(user_id, group_id, song_id, chart_id)
                 if score:
                     return jsonify(score)
                 else:
@@ -111,18 +110,18 @@ class FlaskAppHandler:
         def settings():
             """
             Set or retrieve user settings.
-            - POST Example URL: /db/settings?username=player1&scroll_speed=1.5&noteskin=default&controller=Xbox&
+            - POST Example URL: /db/settings?user_id=player1&scroll_speed=1.5&noteskin=default&controller_type=0&
                                 controller_button_0=A&controller_button_1=B&controller_button_2=X&
                                 controller_button_3=Y&visual_timing_offset=0.05&judgement_timing_offset=0.1&
                                 height_of_notes_area=500&arrow_x_axis_spacing=50&note_scroll_direction=up
-            - GET Example URL: /db/settings?username=player1
+            - GET Example URL: /db/settings?user_id=player1
             """
             if request.method == 'POST':
                 # Setting user settings
-                username = request.args.get('username')
+                user_id = request.args.get('user_id')
                 scroll_speed = float(request.args.get('scroll_speed', 0))
                 noteskin = request.args.get('noteskin', '')
-                controller = request.args.get('controller', '')
+                controller_type = request.args.get('controller_type', '')
                 visual_timing_offset = float(request.args.get('visual_timing_offset', 0))
                 judgement_timing_offset = float(request.args.get('judgement_timing_offset', 0))
                 height_of_notes_area = float(request.args.get('height_of_notes_area', 0))
@@ -137,11 +136,11 @@ class FlaskAppHandler:
                     "button_3": request.args.get('controller_button_3', ''),
                 }
 
-                if not username:
-                    return make_response("Missing username parameter", 400)
+                if not user_id:
+                    return make_response("Missing user_id parameter", 400)
 
                 self.db_client.set_user_settings(
-                    username, scroll_speed, noteskin, controller, controller_buttons,
+                    user_id, scroll_speed, noteskin, controller_type, controller_buttons,
                     visual_timing_offset, judgement_timing_offset,
                     height_of_notes_area, arrow_x_axis_spacing, note_scroll_direction
                 )
@@ -149,12 +148,12 @@ class FlaskAppHandler:
 
             elif request.method == 'GET':
                 # Retrieving user settings
-                username = request.args.get('username')
+                user_id = request.args.get('user_id')
 
-                if not username:
-                    return make_response("Missing username parameter", 400)
+                if not user_id:
+                    return make_response("Missing user_id parameter", 400)
 
-                settings = self.db_client.get_user_settings(username)
+                settings = self.db_client.get_user_settings(user_id)
                 if settings:
                     return jsonify(settings)
                 else:
@@ -197,10 +196,20 @@ class FlaskAppHandler:
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/details', methods=['GET'])
         def get_song_details(group_idx, song_idx):
             _, song = self.validate_indices(group_idx, song_idx)
+
+            # Check if the whole number part of the BPMs is within 1
+            min_bpm_int = int(song.min_bpm)
+            max_bpm_int = int(song.max_bpm)
+
+            if abs(min_bpm_int - max_bpm_int) <= 1:
+                bpm_display = f"BPM: {max_bpm_int}"  # Display the max BPM as the single BPM
+            else:
+                bpm_display = f"BPM Range: {min_bpm_int} - {max_bpm_int}"
+
             details = [
                 song.title,
                 song.artist,
-                f"BPM Range: {int(song.min_bpm)} - {int(song.max_bpm)}" if int(song.min_bpm) != int(song.max_bpm) else f"BPM: {int(song.min_bpm)}",
+                bpm_display,
                 f"Duration: {song.duration_str}"
             ]
             return '\n'.join(details)
