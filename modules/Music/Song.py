@@ -187,9 +187,14 @@ class Song:
         return
 
     @staticmethod
-    def parse_sm_file(sm_file_path: str) -> tuple[
+    def parse_sm_file_contents(sm_file_contents: str) -> tuple[
         str, str, float, float, list[Any] | list[tuple[float, ...]], list[Any] | list[tuple[float, ...]], list[
             Chart], float]:
+        """
+        Parses the contents of an SM file provided as a string.
+        :param sm_file_contents: The contents of the SM file as a single string.
+        :return: Tuple containing title, artist, sample start, sample length, BPMs, stops, charts, and offset.
+        """
         title = ""
         artist = ""
         bpms = []
@@ -199,51 +204,68 @@ class Song:
         sample_length = 0.0
         offset = 0.0  # Initialize offset
 
-        with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
-            in_notes_section = False
-            current_mode = ""
-            current_difficulty_name = ""
-            current_difficulty_level = None  # Set to None to detect if it’s explicitly set for each chart
-            notes_data = []
-            measures = []
+        lines = sm_file_contents.splitlines()
+        in_notes_section = False
+        current_mode = ""
+        current_difficulty_name = ""
+        current_difficulty_level = None  # Set to None to detect if it’s explicitly set for each chart
+        notes_data = []
+        measures = []
 
-            for line in sm_file:
-                line = line.strip().lstrip('\ufeff')
-                line_lower = line.lower()
+        for line in lines:
+            line = line.strip().lstrip('\ufeff')
+            line_lower = line.lower()
 
-                if line_lower.startswith("#title:"):
-                    title = line.split(":")[1].strip().rstrip(';')
-                elif line_lower.startswith("#artist:"):
-                    artist = line.split(":")[1].strip().rstrip(';')
-                elif line_lower.startswith("#offset:"):
-                    offset = float(line.split(":")[1].strip().rstrip(';'))  # Capture the offset
-                elif line_lower.startswith("#bpms:"):
-                    bpms_data = line.split(":", 1)[1].strip()
-                    # Continue reading lines until the semicolon is found
-                    while not bpms_data.endswith(";"):
-                        bpms_data += sm_file.readline().strip()
-                    # Remove the trailing semicolon and parse
-                    bpms_data = bpms_data.rstrip(";")
-                    bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
-                elif line_lower.startswith("#stops:"):
-                    stops_data = line.split(":", 1)[1].strip()
-                    # Continue reading lines until the semicolon is found
-                    while not stops_data.endswith(";"):
-                        stops_data += sm_file.readline().strip()
-                    # Remove the trailing semicolon and parse
-                    stops_data = stops_data.rstrip(";")
-                    if stops_data:
-                        # The duration of the stops is the second value in each tuple, and it's in seconds
-                        stops = [
-                            tuple(map(float, stop.split("="))) for stop in stops_data.split(",") if stop
-                        ]
-                elif line_lower.startswith("#samplestart:"):
-                    sample_start = float(line.split(':')[1].split(';')[0])
-                elif line_lower.startswith("#samplelength:"):
-                    sample_length = float(line.split(':')[1].split(';')[0])
-                elif line_lower.startswith("#notes:"):
-                    # Process the current chart before starting a new one
-                    if in_notes_section and current_mode and current_difficulty_name and current_difficulty_level is not None:
+            if line_lower.startswith("#title:"):
+                title = line.split(":")[1].strip().rstrip(';')
+            elif line_lower.startswith("#artist:"):
+                artist = line.split(":")[1].strip().rstrip(';')
+            elif line_lower.startswith("#offset:"):
+                offset = float(line.split(":")[1].strip().rstrip(';'))  # Capture the offset
+            elif line_lower.startswith("#bpms:"):
+                bpms_data = line.split(":", 1)[1].strip()
+                while not bpms_data.endswith(";"):
+                    bpms_data += next(lines).strip()
+                bpms_data = bpms_data.rstrip(";")
+                bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
+            elif line_lower.startswith("#stops:"):
+                stops_data = line.split(":", 1)[1].strip()
+                while not stops_data.endswith(";"):
+                    stops_data += next(lines).strip()
+                stops_data = stops_data.rstrip(";")
+                if stops_data:
+                    stops = [tuple(map(float, stop.split("="))) for stop in stops_data.split(",") if stop]
+            elif line_lower.startswith("#samplestart:"):
+                sample_start = float(line.split(':')[1].split(';')[0])
+            elif line_lower.startswith("#samplelength:"):
+                sample_length = float(line.split(':')[1].split(';')[0])
+            elif line_lower.startswith("#notes:"):
+                if in_notes_section and current_mode and current_difficulty_name and current_difficulty_level is not None:
+                    chart = Chart(
+                        mode=current_mode,
+                        difficulty_name=current_difficulty_name,
+                        difficulty_level=current_difficulty_level,
+                        measures=measures
+                    )
+                    charts.append(chart)
+                    measures = []
+                in_notes_section = True
+                current_difficulty_level = None
+            elif in_notes_section:
+                if line.startswith("dance-single:") or line.startswith("dance-double:"):
+                    current_mode = line.rstrip(':')
+                elif line.endswith(":") and not current_difficulty_name:
+                    current_difficulty_name = line.rstrip(':').strip()
+                elif line[:-1].isdigit() and current_difficulty_level is None:
+                    current_difficulty_level = int(line[:-1])
+                elif line.startswith(","):
+                    measures.append(notes_data)
+                    notes_data = []
+                elif line.startswith(";"):
+                    in_notes_section = False
+                    if notes_data:
+                        measures.append(notes_data)
+                    if current_mode and current_difficulty_name and current_difficulty_level is not None:
                         chart = Chart(
                             mode=current_mode,
                             difficulty_name=current_difficulty_name,
@@ -251,40 +273,27 @@ class Song:
                             measures=measures
                         )
                         charts.append(chart)
-                        measures = []
-                    in_notes_section = True
-                    current_difficulty_level = None  # Reset for each chart
-                elif in_notes_section:
-                    if line.startswith("dance-single:") or line.startswith("dance-double:"):
-                        current_mode = line.rstrip(':')
-                    elif line.endswith(":") and not current_difficulty_name:
-                        current_difficulty_name = line.rstrip(':').strip()
-                    elif line[:-1].isdigit() and current_difficulty_level is None:
-                        current_difficulty_level = int(line[:-1])
-                    elif line.startswith(","):
-                        measures.append(notes_data)
+                        current_difficulty_name = ""
+                        current_difficulty_level = None
                         notes_data = []
-                    elif line.startswith(";"):
-                        in_notes_section = False
-                        if notes_data:  # Append any remaining notes in the last measure
-                            measures.append(notes_data)
-                        if current_mode and current_difficulty_name and current_difficulty_level is not None:
-                            chart = Chart(
-                                mode=current_mode,
-                                difficulty_name=current_difficulty_name,
-                                difficulty_level=current_difficulty_level,
-                                measures=measures
-                            )
-                            charts.append(chart)
-                            current_difficulty_name = ""
-                            current_difficulty_level = None
-                            notes_data = []
-                            measures = []
-                    elif len(line) == 4 and all(c in '01234M' for c in line.upper()):
-                        # Line is a beat with 4 chars, each being 0, 1, 2, 3, 4, or M
-                        notes_data.append(line)
+                        measures = []
+                elif len(line) == 4 and all(c in '01234M' for c in line.upper()):
+                    notes_data.append(line)
 
         return title, artist, sample_start, sample_length, bpms, stops, charts, offset
+
+    @staticmethod
+    def parse_sm_file(sm_file_path: str) -> tuple[
+        str, str, float, float, list[Any] | list[tuple[float, ...]], list[Any] | list[tuple[float, ...]], list[
+            Chart], float]:
+        """
+        Reads an SM file and parses its contents.
+        :param sm_file_path: The path to the SM file.
+        :return: Tuple containing title, artist, sample start, sample length, BPMs, stops, charts, and offset.
+        """
+        with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
+            sm_file_contents = sm_file.read()
+        return Song.parse_sm_file_contents(sm_file_contents)
 
     @staticmethod
     def get_audio_duration(audio_file_path: str) -> float:
