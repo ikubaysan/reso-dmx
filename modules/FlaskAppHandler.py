@@ -106,6 +106,7 @@ class FlaskAppHandler:
             top_scores = self.db_client.get_top_scores(group_id, song_id, chart_id, limit)
             return jsonify(top_scores)
 
+
         @self.app.route('/db/settings', methods=['GET', 'POST'])
         def settings():
             """
@@ -114,7 +115,7 @@ class FlaskAppHandler:
                                 controller_button_0=A&controller_button_1=B&controller_button_2=X&
                                 controller_button_3=Y&visual_timing_offset=0.05&judgement_timing_offset=0.1&
                                 height_of_notes_area=500&arrow_x_axis_spacing=50&note_scroll_direction=up
-            - GET Example URL: /db/settings?user_id=player1
+            - GET Example URL: /db/settings?user_id=player1&response_type=resonite
             """
             if request.method == 'POST':
                 # Setting user settings
@@ -144,20 +145,44 @@ class FlaskAppHandler:
                     visual_timing_offset, judgement_timing_offset,
                     height_of_notes_area, arrow_x_axis_spacing, note_scroll_direction
                 )
+                logger.info(f"User settings updated for {user_id}")
                 return jsonify({"message": "User settings updated successfully"})
 
             elif request.method == 'GET':
                 # Retrieving user settings
                 user_id = request.args.get('user_id')
+                response_type = request.args.get('response_type', 'json')  # Default to JSON response
 
                 if not user_id:
                     return make_response("Missing user_id parameter", 400)
 
                 settings = self.db_client.get_user_settings(user_id)
-                if settings:
-                    return jsonify(settings)
-                else:
+                if not settings:
                     return make_response("Settings not found", 404)
+
+                if response_type == 'resonite':
+                    # Convert settings to a resonite string
+                    resonite_values = [
+                        settings.get("scroll_speed", ""),
+                        settings.get("visual_timing_offset", ""),
+                        settings.get("judgement_timing_offset", ""),
+                        settings.get("controller_type", ""),
+                        settings.get("height_of_notes_area", ""),
+                        settings.get("arrow_x_axis_spacing", ""),
+                        settings.get("note_scroll_direction", ""),
+
+                        settings["controller_buttons"].get("button_0", ""),
+                        settings["controller_buttons"].get("button_1", ""),
+                        settings["controller_buttons"].get("button_2", ""),
+                        settings["controller_buttons"].get("button_3", ""),
+                    ]
+                    # Pad each value to 50 characters
+                    # and ensure the string is 50 characters long in case the value is greater than 50 characters
+                    resonite_string = ''.join(f'{str(value):<50}'[:50] for value in resonite_values)
+                    return resonite_string  # Response as plain text
+
+                logger.info(f"User settings retrieved for {user_id}")
+                return jsonify(settings)
 
     def setup_routes(self):
         self.setup_api_routes()

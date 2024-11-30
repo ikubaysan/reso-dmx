@@ -116,7 +116,7 @@ class Song:
             logger.info(f"Created a sample file for the song {self.name} in {self.directory}")
 
         except Exception as e:
-            logger.error(f"Failed to create sample for {self.name} due to error: {e}")
+            logger.error(f"Failed to create sample for {self.name} in {self.directory} due to error: {e}")
 
     def detect_jacket(self):
         # Look for a file whose extension is jpg or png, and filename ends with jacket (not case sensitive)
