@@ -38,11 +38,10 @@ class FlaskAppHandler:
             self.logger.info(f"No base URL provided. Using IP address and port.")
 
     def sync_with_sqlite_database(self):
-        """
-        Sync the database with the current filesystem.
-        """
         valid_group_guids = []
         valid_song_guids = []
+        valid_sm_file_paths = set()  # Track all SM files currently in the filesystem
+        valid_song_paths = set()  # Track all song paths currently in the filesystem
 
         logger.info("Syncing sqlite database with filesystem...")
 
@@ -52,22 +51,35 @@ class FlaskAppHandler:
             valid_group_guids.append(group_guid)
 
             for song in group.songs:
+                song_path = song.directory  # Full path to the song's directory
+                valid_song_paths.add(song_path)
+
                 sm_file_path = os.path.join(song.directory, song.sm_file)
+                valid_sm_file_paths.add(sm_file_path)
                 last_modified = os.path.getmtime(sm_file_path)
                 stored_last_modified = self.sqlite_db_connector.get_sm_file_last_modified(sm_file_path)
 
-                # Update the SM file content if it has changed
-                if stored_last_modified is None or last_modified > stored_last_modified:
-                    with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
-                        sm_content = sm_file.read()
-                    self.sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_content)
+                # Handle modified or new SM files
+                if stored_last_modified is None:
+                    logger.info(f"New SM file detected: {sm_file_path}.")
+                elif last_modified > stored_last_modified:
+                    logger.info(f"SM file modified: {sm_file_path}. Reloading charts for this song.")
+                    # Delete existing charts
+                    song_guid = self.sqlite_db_connector.get_song_guid_by_path(song_path)
+                    if song_guid:
+                        self.sqlite_db_connector.delete_charts_by_song_guid(song_guid)
+
+                # Insert or update SM file
+                with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
+                    sm_content = sm_file.read()
+                self.sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_content)
 
                 # Insert song and track its GUID
-                song_guid = self.sqlite_db_connector.insert_song(group_guid, song.name)
+                song_guid = self.sqlite_db_connector.insert_song(group_guid, song.name, song_path)
                 valid_song_guids.append(song_guid)
 
+                # Insert charts for the song
                 for chart in song.charts:
-                    # Insert chart into the database
                     self.sqlite_db_connector.insert_chart(
                         song_guid=song_guid,
                         difficulty_name=chart.difficulty_name,
@@ -75,7 +87,8 @@ class FlaskAppHandler:
                     )
 
         # Cleanup orphaned records
-        self.sqlite_db_connector.cleanup_orphaned_records(valid_group_guids, valid_song_guids)
+        self.sqlite_db_connector.cleanup_orphaned_records(valid_group_guids, valid_song_guids, valid_sm_file_paths,
+                                                          valid_song_paths)
         logger.info("SQLite database sync complete.")
 
     def setup_logging(self):
