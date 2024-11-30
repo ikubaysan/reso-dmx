@@ -35,14 +35,15 @@ class SQLiteConnector:
         cursor.executescript("""
             CREATE TABLE IF NOT EXISTS groups (
                 guid TEXT PRIMARY KEY,
-                name TEXT NOT NULL
+                name TEXT NOT NULL UNIQUE
             );
 
             CREATE TABLE IF NOT EXISTS songs (
                 guid TEXT PRIMARY KEY,
                 group_guid TEXT NOT NULL,
                 name TEXT NOT NULL,
-                FOREIGN KEY(group_guid) REFERENCES groups(guid)
+                FOREIGN KEY(group_guid) REFERENCES groups(guid),
+                UNIQUE(group_guid, name)
             );
 
             CREATE TABLE IF NOT EXISTS charts (
@@ -50,7 +51,8 @@ class SQLiteConnector:
                 song_guid TEXT NOT NULL,
                 difficulty_name TEXT NOT NULL,
                 difficulty_level INTEGER NOT NULL,
-                FOREIGN KEY(song_guid) REFERENCES songs(guid)
+                FOREIGN KEY(song_guid) REFERENCES songs(guid),
+                UNIQUE(song_guid, difficulty_name, difficulty_level)
             );
 
             CREATE TABLE IF NOT EXISTS sm_files (
@@ -62,57 +64,45 @@ class SQLiteConnector:
         self.conn.commit()
 
     def insert_group(self, name: str) -> str:
-        """
-        Inserts a new group into the database or returns the existing GUID.
-
-        :param name: Name of the group.
-        :return: GUID of the inserted or existing group.
-        """
         cursor = self.conn.cursor()
-        guid = str(uuid4())
-
-        # Use INSERT OR IGNORE to avoid duplicates
-        cursor.execute("""
-            INSERT OR IGNORE INTO groups (guid, name)
-            VALUES (?, ?)
-        """, (guid, name))
-
-        # Retrieve the existing or newly inserted GUID
         cursor.execute("SELECT guid FROM groups WHERE name = ?", (name,))
-        guid = cursor.fetchone()[0]
-        self.conn.commit()
+        row = cursor.fetchone()
+        if row:
+            guid = row[0]
+        else:
+            guid = str(uuid4())
+            cursor.execute("INSERT INTO groups (guid, name) VALUES (?, ?)", (guid, name))
+            self.conn.commit()
         return guid
 
     def insert_song(self, group_guid: str, name: str) -> str:
-        """
-        Inserts a new song into the database.
-
-        :param group_guid: GUID of the associated group.
-        :param name: Name of the song.
-        :return: GUID of the inserted song.
-        """
-        guid = str(uuid4())
         cursor = self.conn.cursor()
-        cursor.execute("INSERT INTO songs (guid, group_guid, name) VALUES (?, ?, ?)", (guid, group_guid, name))
-        self.conn.commit()
+        cursor.execute("SELECT guid FROM songs WHERE group_guid = ? AND name = ?", (group_guid, name))
+        row = cursor.fetchone()
+        if row:
+            guid = row[0]
+        else:
+            guid = str(uuid4())
+            cursor.execute("INSERT INTO songs (guid, group_guid, name) VALUES (?, ?, ?)", (guid, group_guid, name))
+            self.conn.commit()
         return guid
 
     def insert_chart(self, song_guid: str, difficulty_name: str, difficulty_level: int) -> str:
-        """
-        Inserts a new chart into the database.
-
-        :param song_guid: GUID of the associated song.
-        :param difficulty_name: Name of the difficulty.
-        :param difficulty_level: Level of the difficulty.
-        :return: GUID of the inserted chart.
-        """
-        guid = str(uuid4())
         cursor = self.conn.cursor()
-        cursor.execute(
-            "INSERT INTO charts (guid, song_guid, difficulty_name, difficulty_level) VALUES (?, ?, ?, ?)",
-            (guid, song_guid, difficulty_name, difficulty_level)
-        )
-        self.conn.commit()
+        cursor.execute("""
+            SELECT guid FROM charts
+            WHERE song_guid = ? AND difficulty_name = ? AND difficulty_level = ?
+        """, (song_guid, difficulty_name, difficulty_level))
+        row = cursor.fetchone()
+        if row:
+            guid = row[0]
+        else:
+            guid = str(uuid4())
+            cursor.execute("""
+                INSERT INTO charts (guid, song_guid, difficulty_name, difficulty_level)
+                VALUES (?, ?, ?, ?)
+            """, (guid, song_guid, difficulty_name, difficulty_level))
+            self.conn.commit()
         return guid
 
     def insert_or_update_sm_file(self, path: str, content: str) -> None:
@@ -144,19 +134,33 @@ class SQLiteConnector:
         row = cursor.fetchone()
         return row[0] if row else None
 
-    def cleanup_orphaned_records(self, valid_groups: List[str], valid_songs: List[str]) -> None:
-        """
-        Deletes orphaned groups and songs that no longer exist.
-
-        :param valid_groups: List of valid group GUIDs.
-        :param valid_songs: List of valid song GUIDs.
-        """
+    def cleanup_orphaned_records(self, valid_group_guids: List[str], valid_song_guids: List[str]) -> None:
         cursor = self.conn.cursor()
-        cursor.execute("DELETE FROM songs WHERE group_guid NOT IN (SELECT guid FROM groups WHERE guid IN (?))",
-                       (",".join(valid_groups),))
-        cursor.execute("DELETE FROM charts WHERE song_guid NOT IN (SELECT guid FROM songs WHERE guid IN (?))",
-                       (",".join(valid_songs),))
-        cursor.execute("DELETE FROM groups WHERE guid NOT IN (?)", (",".join(valid_groups),))
+
+        # Delete songs not associated with valid groups
+        if valid_group_guids:
+            placeholders = ','.join('?' * len(valid_group_guids))
+            cursor.execute(f"DELETE FROM songs WHERE group_guid NOT IN ({placeholders})", valid_group_guids)
+        else:
+            # If no valid groups, delete all songs
+            cursor.execute("DELETE FROM songs")
+
+        # Delete charts not associated with valid songs
+        if valid_song_guids:
+            placeholders = ','.join('?' * len(valid_song_guids))
+            cursor.execute(f"DELETE FROM charts WHERE song_guid NOT IN ({placeholders})", valid_song_guids)
+        else:
+            # If no valid songs, delete all charts
+            cursor.execute("DELETE FROM charts")
+
+        # Delete groups not in valid_group_guids
+        if valid_group_guids:
+            placeholders = ','.join('?' * len(valid_group_guids))
+            cursor.execute(f"DELETE FROM groups WHERE guid NOT IN ({placeholders})", valid_group_guids)
+        else:
+            # If no valid groups, delete all groups
+            cursor.execute("DELETE FROM groups")
+
         self.conn.commit()
 
     def close(self):
