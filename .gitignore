@@ -18,3 +18,6 @@ venv/
 songs/
 
 *.exe
+
+
+*.sqlite3

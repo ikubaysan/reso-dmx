@@ -54,5 +54,6 @@ def find_songs(root_directory: str) -> List[Group]:
                         group.add_song(song_dir, audio_file, sm_file, song_path)
 
             groups.append(group)
+            logger.info(f"Found {group.song_count} songs in group '{group.name}'")
 
     return groups

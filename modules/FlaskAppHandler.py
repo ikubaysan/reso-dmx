@@ -11,6 +11,8 @@ from modules.utils.Loggers import configure_console_logger
 
 logger = logging.getLogger(__name__)
 from modules.DatabaseClient import DatabaseClient
+from modules.SQLiteConnector import SQLiteConnector
+
 class FlaskAppHandler:
     def __init__(self, config: Config, host='0.0.0.0', base_url="http://servers.ikubaysan.com", port=5731, root_directory='./songs'):
         self.app = Flask(__name__)
@@ -25,16 +27,62 @@ class FlaskAppHandler:
         self.setup_routes()
         self.setup_logging()
         self.force_always_precalculate_beats = False
+
+        self.sqlite_db_connector = SQLiteConnector(os.path.join(os.path.dirname(__file__), "../reso-dmx.sqlite3"))
+        self.sync_with_sqlite_database()
+
         self.logger.info(f"Flask server started on {self.host}:{self.port} with root directory {os.path.abspath(self.root_directory)}")
         if base_url:
             self.logger.info(f"Base URL: {self.base_url}")
         else:
             self.logger.info(f"No base URL provided. Using IP address and port.")
 
+    def sync_with_sqlite_database(self):
+        """
+        Sync the database with the current filesystem.
+        """
+        valid_group_guids = []
+        valid_song_guids = []
+
+        logger.info("Syncing sqlite database with filesystem...")
+
+        for group in self.groups:
+            # Insert group and track its GUID
+            group_guid = self.sqlite_db_connector.insert_group(group.name)
+            valid_group_guids.append(group_guid)
+
+            for song in group.songs:
+                sm_file_path = os.path.join(song.directory, song.sm_file)
+                last_modified = os.path.getmtime(sm_file_path)
+                stored_last_modified = self.sqlite_db_connector.get_sm_file_last_modified(sm_file_path)
+
+                # Update the SM file content if it has changed
+                if stored_last_modified is None or last_modified > stored_last_modified:
+                    with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
+                        sm_content = sm_file.read()
+                    self.sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_content)
+
+                # Insert song and track its GUID
+                song_guid = self.sqlite_db_connector.insert_song(group_guid, song.name)
+                valid_song_guids.append(song_guid)
+
+                for chart in song.charts:
+                    # Insert chart into the database
+                    self.sqlite_db_connector.insert_chart(
+                        song_guid=song_guid,
+                        difficulty_name=chart.difficulty_name,
+                        difficulty_level=chart.difficulty_level
+                    )
+
+        # Cleanup orphaned records
+        self.sqlite_db_connector.cleanup_orphaned_records(valid_group_guids, valid_song_guids)
+        logger.info("SQLite database sync complete.")
+
     def setup_logging(self):
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         self.logger.info(f"Found {sum(len(group.songs) for group in self.groups)} songs in {len(self.groups)} groups.")
+        pass
 
     def validate_indices(self, group_idx, song_idx=None) -> Tuple[Group, Optional[Song]]:
         if group_idx >= len(self.groups) or group_idx < 0:
