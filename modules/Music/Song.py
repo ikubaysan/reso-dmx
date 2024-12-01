@@ -1,4 +1,4 @@
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Optional
 from modules.Music.Chart import Chart
 from uuid import uuid4
 import os
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 current_id = 0
 
 class Song:
-    def __init__(self, name: str, audio_file: str, sm_file: str, directory: str, id: int):
+    def __init__(self, name: str, audio_file: str, directory: str, id: int, sm_file: str, sm_file_contents: Optional[str] = None):
         """
         :param name: The name of the song
         :param audio_file: The audio file filename
@@ -32,6 +32,7 @@ class Song:
         self.audio_file_name = os.path.basename(self.audio_file_path)
 
         self.sm_file = sm_file
+        self.sm_file_contents = sm_file_contents
         self.title = ""
         self.artist = ""
         self.bpms: List[Tuple[float, float]] = [] # eg [(0.0, 137.7), (4.0, 138.0)]
@@ -144,7 +145,9 @@ class Song:
                                                                                          'background.png'))]
         self.background = background_files[0] if background_files else None
 
-    def load_charts_from_sm_file(self):
+
+
+    def load_charts_from_sm_file_contents(self, sm_file_contents: str):
         """
         This needs to be called explicitly after the Song object is created, in order to populate the charts list.
         :param sm_file_path:
@@ -152,7 +155,7 @@ class Song:
         """
 
         try:
-            title, artist, sample_start, sample_length, bpms, stops, charts, offset = self.parse_sm_file(os.path.join(self.directory, self.sm_file))
+            title, artist, sample_start, sample_length, bpms, stops, charts, offset = self.parse_sm_file_contents(sm_file_contents)
         except Exception as e:
             logger.error(f"Song {self.name} simfile in {self.directory} could not be read: {str(e)}")
             return
@@ -161,7 +164,7 @@ class Song:
         self.artist = artist
         self.sample_start = sample_start
         self.sample_length = sample_length
-        self.offset = offset  # Store the parsed offset
+        self.offset = offset
 
         self.bpms = bpms
 
@@ -184,6 +187,17 @@ class Song:
         self.duration = self.get_audio_duration(audio_file_path=self.audio_file_path)
         self.duration_str = format_seconds(self.duration)
         self.create_sample_ogg()
+
+
+    def load_charts_from_sm_file(self):
+        """
+        This needs to be called explicitly after the Song object is created, in order to populate the charts list.
+        :param sm_file_path:
+        :return:
+        """
+
+        self.sm_file_contents = open(os.path.join(self.directory, self.sm_file), 'r', encoding='utf-8').read()
+        self.load_charts_from_sm_file_contents(sm_file_contents=self.sm_file_contents)
         return
 
     @staticmethod
@@ -281,19 +295,6 @@ class Song:
                     notes_data.append(line)
 
         return title, artist, sample_start, sample_length, bpms, stops, charts, offset
-
-    @staticmethod
-    def parse_sm_file(sm_file_path: str) -> tuple[
-        str, str, float, float, list[Any] | list[tuple[float, ...]], list[Any] | list[tuple[float, ...]], list[
-            Chart], float]:
-        """
-        Reads an SM file and parses its contents.
-        :param sm_file_path: The path to the SM file.
-        :return: Tuple containing title, artist, sample start, sample length, BPMs, stops, charts, and offset.
-        """
-        with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
-            sm_file_contents = sm_file.read()
-        return Song.parse_sm_file_contents(sm_file_contents)
 
     @staticmethod
     def get_audio_duration(audio_file_path: str) -> float:
