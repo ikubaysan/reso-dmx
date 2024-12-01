@@ -2,6 +2,7 @@ from flask import Flask, jsonify, abort, make_response, url_for, send_from_direc
 from modules.Music.Group import Group
 from modules.Music.Song import Song
 from modules.Music.Group import find_songs
+from modules.utils.FileUtils import read_file_with_encodings
 from modules.Music.Beat import precalculate_beats, get_beats_as_resonite_string
 from modules.Config import Config
 from typing import List, Tuple, Optional
@@ -29,7 +30,7 @@ class FlaskAppHandler:
         self.force_always_precalculate_beats = False
 
         self.sqlite_db_connector = SQLiteConnector(os.path.join(os.path.dirname(__file__), "../reso-dmx.sqlite3"))
-        self.sync_with_sqlite_database()
+        # self.sync_with_sqlite_database()
 
         self.logger.info(f"Flask server started on {self.host}:{self.port} with root directory {os.path.abspath(self.root_directory)}")
         if base_url:
@@ -69,9 +70,12 @@ class FlaskAppHandler:
                     if song_guid:
                         self.sqlite_db_connector.delete_charts_by_song_guid(song_guid)
 
-                # Insert or update SM file
-                with open(sm_file_path, 'r', encoding='utf-8') as sm_file:
-                    sm_content = sm_file.read()
+                try:
+                    sm_content = read_file_with_encodings(sm_file_path)
+                except Exception as e:
+                    logger.error(f"Failed to load {sm_file_path}: {e}")
+                    continue
+
                 self.sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_content)
 
                 # Insert song and track its GUID

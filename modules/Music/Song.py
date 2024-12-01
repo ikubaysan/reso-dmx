@@ -1,6 +1,7 @@
 from typing import List, Tuple, Any, Optional
 from modules.Music.Chart import Chart
 from uuid import uuid4
+from modules.utils.FileUtils import read_file_with_encodings
 import os
 from typing import Tuple, List, Dict, Any
 from mutagen.id3 import ID3
@@ -193,26 +194,12 @@ class Song:
         This needs to be called explicitly after the Song object is created, in order to populate the charts list.
         """
         sm_file_path = os.path.join(self.directory, self.sm_file)
-        encodings_to_try = ['utf-8', 'latin-1', 'windows-1252']
 
-        for encoding in encodings_to_try:
-            try:
-                with open(sm_file_path, 'r', encoding=encoding) as f:
-                    self.sm_file_contents = f.read()
-                # logger.info(f"Loaded {self.sm_file} using encoding {encoding}.")
-                break  # Exit the loop if the file is read successfully
-            except UnicodeDecodeError as e:
-                # logger.warning(f"Failed to load {self.sm_file} as {encoding}: {e}")
-                pass
-        else:
-            # If all encodings fail, use 'replace' to handle invalid characters
-            try:
-                with open(sm_file_path, 'r', encoding='utf-8', errors='replace') as f:
-                    self.sm_file_contents = f.read()
-                logger.warning(f"Loaded {self.sm_file} using utf-8 with errors replaced.")
-            except Exception as e:
-                logger.error(f"Failed to load {self.sm_file} in {self.directory} as any supported encoding: {e}")
-                return
+        try:
+            self.sm_file_contents = read_file_with_encodings(sm_file_path)
+        except Exception as e:
+            logger.error(f"Failed to load {self.sm_file} in {self.directory}: {e}")
+            return
 
         self.load_charts_from_sm_file_contents(sm_file_contents=self.sm_file_contents)
 
