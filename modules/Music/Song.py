@@ -196,7 +196,12 @@ class Song:
         :return:
         """
 
-        self.sm_file_contents = open(os.path.join(self.directory, self.sm_file), 'r', encoding='utf-8').read()
+        try:
+            self.sm_file_contents = open(os.path.join(self.directory, self.sm_file), 'r', encoding='utf-8').read()
+        except Exception as e:
+            logger.error(f"Song {self.name} simfile in {self.directory} could not be read: {str(e)}")
+            return
+
         self.load_charts_from_sm_file_contents(sm_file_contents=self.sm_file_contents)
         return
 
