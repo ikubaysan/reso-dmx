@@ -202,7 +202,8 @@ class Song:
                 # logger.info(f"Loaded {self.sm_file} using encoding {encoding}.")
                 break  # Exit the loop if the file is read successfully
             except UnicodeDecodeError as e:
-                logger.warning(f"Failed to load {self.sm_file} as {encoding}: {e}")
+                # logger.warning(f"Failed to load {self.sm_file} as {encoding}: {e}")
+                pass
         else:
             # If all encodings fail, use 'replace' to handle invalid characters
             try:
