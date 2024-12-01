@@ -122,7 +122,7 @@ if __name__ == "__main__":
                          sm_file="bass 2 bass.sm",
                          directory=os.path.abspath("../../songs/DDR A/bass 2 bass"),
                          id=0)
-    selected_song.load_charts()
+    selected_song.load_charts_from_sm_file()
     beats = precalculate_beats(song=selected_song, chart=selected_song.charts[3], exclude_inactive_beats=True)
     resonite_string = get_beats_as_resonite_string(beats)
     pass

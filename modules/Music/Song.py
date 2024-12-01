@@ -144,7 +144,7 @@ class Song:
                                                                                          'background.png'))]
         self.background = background_files[0] if background_files else None
 
-    def load_charts(self):
+    def load_charts_from_sm_file(self):
         """
         This needs to be called explicitly after the Song object is created, in order to populate the charts list.
         :param sm_file_path:

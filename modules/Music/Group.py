@@ -16,7 +16,7 @@ class Group:
     def add_song(self, song_dir: str, audio_file: str, sm_file: str, song_path: str):
         song = Song(song_dir, audio_file, sm_file, song_path, self.song_count)
 
-        song.load_charts()
+        song.load_charts_from_sm_file()
 
         if not song.loaded:
             return
