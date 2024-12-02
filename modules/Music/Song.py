@@ -32,7 +32,7 @@ class Song:
         self.audio_file_path = self.get_ogg_audio_file_path(original_audio_file_path=os.path.join(self.directory, audio_file))
         self.audio_file_name = os.path.basename(self.audio_file_path)
 
-        self.sm_file = sm_file
+        self.sm_file_name = sm_file
         self.sm_file_contents = sm_file_contents
         self.title = ""
         self.artist = ""
@@ -193,12 +193,12 @@ class Song:
         """
         This needs to be called explicitly after the Song object is created, in order to populate the charts list.
         """
-        sm_file_path = os.path.join(self.directory, self.sm_file)
+        sm_file_path = os.path.join(self.directory, self.sm_file_name)
 
         try:
             self.sm_file_contents = read_file_with_encodings(sm_file_path)
         except Exception as e:
-            logger.error(f"Failed to load {self.sm_file} in {self.directory}: {e}")
+            logger.error(f"Failed to load {self.sm_file_name} in {self.directory}: {e}")
             return
 
         self.load_charts_from_sm_file_contents(sm_file_contents=self.sm_file_contents)

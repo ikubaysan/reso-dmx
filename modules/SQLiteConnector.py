@@ -32,14 +32,15 @@ class SQLiteConnector:
         cursor.executescript("""
             CREATE TABLE IF NOT EXISTS groups (
                 guid TEXT PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE
+                name TEXT NOT NULL UNIQUE,
+                directory_path TEXT NOT NULL UNIQUE
             );
 
             CREATE TABLE IF NOT EXISTS songs (
                 guid TEXT PRIMARY KEY,
                 group_guid TEXT NOT NULL,
                 name TEXT NOT NULL,
-                path TEXT NOT NULL UNIQUE,
+                directory_path TEXT NOT NULL UNIQUE,
                 FOREIGN KEY(group_guid) REFERENCES groups(guid),
                 UNIQUE(group_guid, name)
             );
@@ -47,6 +48,7 @@ class SQLiteConnector:
             CREATE TABLE IF NOT EXISTS charts (
                 guid TEXT PRIMARY KEY,
                 song_guid TEXT NOT NULL,
+                path TEXT NOT NULL,
                 difficulty_name TEXT NOT NULL,
                 difficulty_level INTEGER NOT NULL,
                 FOREIGN KEY(song_guid) REFERENCES songs(guid),
@@ -61,22 +63,31 @@ class SQLiteConnector:
         """)
         self.conn.commit()
 
-    def insert_group(self, name: str) -> str:
+    def insert_group(self, name: str, directory_path: str) -> str:
         cursor = self.conn.cursor()
-        cursor.execute("SELECT guid FROM groups WHERE name = ?", (name,))
+        cursor.execute("SELECT guid FROM groups WHERE directory_path = ?", (directory_path,))
         row = cursor.fetchone()
         if row:
             guid = row[0]
         else:
             guid = str(uuid4())
-            cursor.execute("INSERT INTO groups (guid, name) VALUES (?, ?)", (guid, name))
+            cursor.execute("INSERT INTO groups (guid, name, directory_path) VALUES (?, ?, ?)", (guid, name, directory_path))
             self.conn.commit()
-            logger.info(f"New group added: {name} (GUID: {guid})")
+            logger.info(f"New group added: {directory_path} (GUID: {guid})")
         return guid
 
-    def insert_song(self, group_guid: str, name: str, path: str) -> str:
+
+
+    def get_song_guid_by_directory_path(self, directory_path: str) -> Optional[str]:
         cursor = self.conn.cursor()
-        cursor.execute("SELECT guid FROM songs WHERE path = ?", (path,))
+        cursor.execute("SELECT guid FROM songs WHERE directory_path = ?", (directory_path,))
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+
+    def insert_song(self, group_guid: str, name: str, directory_path: str) -> str:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT guid FROM songs WHERE directory_path = ?", (directory_path,))
         row = cursor.fetchone()
         if row:
             guid = row[0]
@@ -87,13 +98,13 @@ class SQLiteConnector:
             self.conn.commit()
         else:
             guid = str(uuid4())
-            cursor.execute("INSERT INTO songs (guid, group_guid, name, path) VALUES (?, ?, ?, ?)",
-                           (guid, group_guid, name, path))
+            cursor.execute("INSERT INTO songs (guid, group_guid, name, directory_path) VALUES (?, ?, ?, ?)",
+                           (guid, group_guid, name, directory_path))
             self.conn.commit()
             logger.info(f"New song added: {name} (GUID: {guid})")
         return guid
 
-    def insert_chart(self, song_guid: str, difficulty_name: str, difficulty_level: int) -> str:
+    def insert_chart(self, song_guid: str, sm_file_path: str, difficulty_name: str, difficulty_level: int) -> str:
         cursor = self.conn.cursor()
         cursor.execute("""
             SELECT guid FROM charts
@@ -105,9 +116,9 @@ class SQLiteConnector:
         else:
             guid = str(uuid4())
             cursor.execute("""
-                INSERT INTO charts (guid, song_guid, difficulty_name, difficulty_level)
-                VALUES (?, ?, ?, ?)
-            """, (guid, song_guid, difficulty_name, difficulty_level))
+                INSERT INTO charts (guid, song_guid, path, difficulty_name, difficulty_level)
+                VALUES (?, ?, ?, ?, ?)
+            """, (guid, song_guid, sm_file_path, difficulty_name, difficulty_level))
             self.conn.commit()
             logger.info(f"New chart added: {difficulty_name} (Level: {difficulty_level}, GUID: {guid})")
         return guid
@@ -147,57 +158,46 @@ class SQLiteConnector:
         row = cursor.fetchone()
         return row[0] if row else None
 
-    def get_song_guid_by_path(self, path: str) -> Optional[str]:
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT guid FROM songs WHERE path = ?", (path,))
-        row = cursor.fetchone()
-        return row[0] if row else None
-
-    def cleanup_orphaned_records(self, valid_group_guids: List[str], valid_song_guids: List[str],
-                                 valid_sm_file_paths: set, valid_song_paths: set):
+    def cleanup_orphaned_records(self,
+                                 valid_group_directory_paths: set,
+                                 valid_song_directory_paths: set,
+                                 valid_sm_file_paths: set):
         cursor = self.conn.cursor()
 
-        # Delete songs whose paths are no longer in the filesystem
-        cursor.execute("SELECT guid, name, path FROM songs")
+        # Delete songs not in valid_song_directory_paths
+        cursor.execute("SELECT guid, name, directory_path FROM songs")
         all_songs = cursor.fetchall()
         orphaned_song_guids = []
         for song in all_songs:
-            song_guid, song_name, song_path = song
-            if song_path not in valid_song_paths:
-                logger.info(f"Deleting orphaned song: Name: {song_name}, Path: {song_path}")
+            song_guid, song_name, song_directory_path = song
+            if song_directory_path not in valid_song_directory_paths:
+                logger.info(f"Deleting orphaned song: Name: {song_name}, Path: {song_directory_path}")
                 orphaned_song_guids.append(song_guid)
         if orphaned_song_guids:
             placeholders = ','.join('?' * len(orphaned_song_guids))
-            cursor.execute(f"DELETE FROM songs WHERE guid IN ({placeholders})", orphaned_song_guids)
+            cursor.execute(f"DELETE FROM songs WHERE guid IN ({placeholders})", tuple(orphaned_song_guids))
 
-        # Delete charts not associated with valid songs
-        if valid_song_guids:
-            placeholders = ','.join('?' * len(valid_song_guids))
-            cursor.execute(f"SELECT guid, song_guid FROM charts WHERE song_guid NOT IN ({placeholders})",
-                           valid_song_guids)
-        else:
-            cursor.execute("SELECT guid, song_guid FROM charts")
-        orphaned_charts = cursor.fetchall()
-        for chart in orphaned_charts:
-            logger.info(f"Deleting orphaned chart: GUID: {chart[0]}, Song GUID: {chart[1]}")
-        if orphaned_charts:
-            chart_guids = [chart[0] for chart in orphaned_charts]
-            placeholders = ','.join('?' * len(chart_guids))
-            cursor.execute(f"DELETE FROM charts WHERE guid IN ({placeholders})", chart_guids)
+        # Delete charts associated with the songs that were deleted
+        if orphaned_song_guids:
+            placeholders = ','.join('?' * len(orphaned_song_guids))
+            cursor.execute(f"DELETE FROM charts WHERE song_guid IN ({placeholders})", tuple(orphaned_song_guids))
+            logger.info(f"Deleted all charts for {len(orphaned_song_guids)} orphaned songs.")
 
-        # Delete groups not in valid_group_guids
-        if valid_group_guids:
-            placeholders = ','.join('?' * len(valid_group_guids))
-            cursor.execute(f"SELECT guid, name FROM groups WHERE guid NOT IN ({placeholders})", valid_group_guids)
+        # Delete groups not in valid_group_directory_paths
+        if valid_group_directory_paths:
+            placeholders = ','.join('?' * len(valid_group_directory_paths))
+            cursor.execute(
+                f"SELECT guid, name, directory_path FROM groups WHERE directory_path NOT IN ({placeholders})",
+                tuple(valid_group_directory_paths))
         else:
-            cursor.execute("SELECT guid, name FROM groups")
+            cursor.execute("SELECT guid, name, directory_path FROM groups")
         orphaned_groups = cursor.fetchall()
         for group in orphaned_groups:
-            logger.info(f"Deleting orphaned group: GUID: {group[0]}, Name: {group[1]}")
+            logger.info(f"Deleting orphaned group: GUID: {group[0]}, Name: {group[1]}, Directory Path: {group[2]}")
         if orphaned_groups:
             group_guids = [group[0] for group in orphaned_groups]
             placeholders = ','.join('?' * len(group_guids))
-            cursor.execute(f"DELETE FROM groups WHERE guid IN ({placeholders})", group_guids)
+            cursor.execute(f"DELETE FROM groups WHERE guid IN ({placeholders})", tuple(group_guids))
 
         # Delete SM files that are no longer in the filesystem
         cursor.execute("SELECT path FROM sm_files")
@@ -210,6 +210,7 @@ class SQLiteConnector:
             cursor.execute(f"DELETE FROM sm_files WHERE path IN ({placeholders})", tuple(orphaned_sm_files))
 
         self.conn.commit()
+        logger.info("Completed cleanup of orphaned records.")
 
     def close(self):
         """

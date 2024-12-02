@@ -21,15 +21,18 @@ class FlaskAppHandler:
         self.base_url = base_url
         self.config = config
         self.db_client = DatabaseClient(self.config)
+        self.sqlite_db_connector = SQLiteConnector(os.path.join(os.path.dirname(__file__), "../reso-dmx.sqlite3"))
         self.port = port
         self.root_directory = root_directory
-        self.groups = find_songs(self.root_directory)
+
+        self.groups = find_songs(root_directory=self.root_directory,
+                                 sqlite_db_connector=self.sqlite_db_connector)
+
         self.file_guid_map = {}  # Dictionary to store GUID to file path mapping
         self.setup_routes()
         self.setup_logging()
         self.force_always_precalculate_beats = False
 
-        self.sqlite_db_connector = SQLiteConnector(os.path.join(os.path.dirname(__file__), "../reso-dmx.sqlite3"))
         # self.sync_with_sqlite_database()
 
         self.logger.info(f"Flask server started on {self.host}:{self.port} with root directory {os.path.abspath(self.root_directory)}")
@@ -55,7 +58,7 @@ class FlaskAppHandler:
                 song_path = song.directory  # Full path to the song's directory
                 valid_song_paths.add(song_path)
 
-                sm_file_path = os.path.join(song.directory, song.sm_file)
+                sm_file_path = os.path.join(song.directory, song.sm_file_name)
                 valid_sm_file_paths.add(sm_file_path)
                 last_modified = os.path.getmtime(sm_file_path)
                 stored_last_modified = self.sqlite_db_connector.get_sm_file_last_modified(sm_file_path)
