@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 current_id = 0
 
 class Song:
-    def __init__(self, name: str, audio_file: str, directory: str, id: int, sm_file: str, sm_file_contents: Optional[str] = None):
+    def __init__(self, song_id: Optional[str], name: str, audio_file: str, directory: str, sm_file: str, sm_file_contents: Optional[str] = None):
         """
         :param name: The name of the song
         :param audio_file: The audio file filename
@@ -40,15 +40,15 @@ class Song:
         self.min_bpm = 0.0
         self.max_bpm = 0.0
         self.charts: List[Chart] = []
+        self.chart_guids: List[str] = []
         self.duration: float = 0.0  # Song duration in seconds
         self.duration_str: str = ""
         self.sample_start = 0.0
         self.sample_length = 0.0
         self.offset = 0.0
-        self.id = id
+        self.song_id = song_id or str(uuid4())
         self.detect_jacket()
         self.detect_background()
-        self.uuid = str(uuid4())
         self.loaded = False
         return
 
@@ -180,14 +180,17 @@ class Song:
 
         self.stops = stops
 
-        # Remove charts that are not mode "dance-single" (eg. "dance-double")
-        self.charts = [chart for chart in charts if chart.mode == "dance-single"]
-        # Sort the charts by difficulty level ascending
-        self.charts.sort(key=lambda x: x.difficulty_level)
-
         self.duration = self.get_audio_duration(audio_file_path=self.audio_file_path)
         self.duration_str = format_seconds(self.duration)
         self.create_sample_ogg()
+
+        # Remove charts that are not mode "dance-single" (eg. "dance-double")
+        self.charts = [chart for chart in charts if chart.mode == "dance-single"]
+
+        # Sort the charts by difficulty level ascending
+        self.charts.sort(key=lambda x: x.difficulty_level)
+
+        self.chart_guids = [chart.chart_id for chart in self.charts]
 
     def load_charts_from_sm_file(self):
         """
@@ -260,6 +263,7 @@ class Song:
             elif line_lower.startswith("#notes:"):
                 if in_notes_section and current_mode and current_difficulty_name and current_difficulty_level is not None:
                     chart = Chart(
+                        chart_id=None,
                         mode=current_mode,
                         difficulty_name=current_difficulty_name,
                         difficulty_level=current_difficulty_level,
@@ -285,6 +289,7 @@ class Song:
                         measures.append(notes_data)
                     if current_mode and current_difficulty_name and current_difficulty_level is not None:
                         chart = Chart(
+                            chart_id=None,
                             mode=current_mode,
                             difficulty_name=current_difficulty_name,
                             difficulty_level=current_difficulty_level,

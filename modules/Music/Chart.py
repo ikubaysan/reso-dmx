@@ -1,8 +1,10 @@
 from typing import List, Tuple, Dict, Any
 from modules.Music.Beat import Beat
+from typing import Optional
+from uuid import uuid4
 
 class Chart:
-    def __init__(self, mode: str, difficulty_name: str, difficulty_level: int, measures: List[str]):
+    def __init__(self, chart_id: Optional[str], mode: str, difficulty_name: str, difficulty_level: int, measures: List[str]):
         """
         :param mode: "dance-single" or "dance-double"
         :param difficulty_name: "Beginner", "Easy", "Medium", "Hard", "Challenge"
@@ -31,3 +33,4 @@ class Chart:
         self.note_count = 0
         self.beats: List[Beat] = []
         self.beats_as_resonite_string = ""
+        self.chart_id = chart_id or str(uuid4())

@@ -1,8 +1,10 @@
 from typing import List
+import json
 import logging
 from modules.Music.Song import Song
 import os
 from modules.utils.FileUtils import read_file_with_encodings
+from uuid import uuid4
 
 from modules.SQLiteConnector import SQLiteConnector
 
@@ -16,21 +18,6 @@ class Group:
         self.name = name
         self.songs: List[Song] = []
         self.song_count = 0
-
-    def add_song(self, song_dir: str, audio_file: str, sm_file: str, song_path: str):
-        song = Song(song_dir, audio_file, song_path, self.song_count, sm_file)
-
-        song.load_charts_from_sm_file()
-
-        if not song.loaded:
-            return
-
-        if song.duration == 0:
-            logger.warning(f"Song {song.name} has a duration of 0 seconds - skipping.")
-            return
-
-        self.songs.append(song)
-        self.song_count += 1
 
 
 def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> List[Group]:
@@ -91,14 +78,20 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
             last_modified = os.path.getmtime(sm_file_path)
             stored_sm_file_entry = sm_files_from_db.get(sm_file_path)
 
+            song_modification_in_db_needed = False
+
             if stored_sm_file_entry:
                 stored_last_modified = stored_sm_file_entry['last_modified']
                 if last_modified <= stored_last_modified:
                     # SM file has not changed, load content from db
                     sm_file_contents = stored_sm_file_entry['content']
                     # logger.info(f"Loading SM file from database for song '{song_dir}'.")
-                    song = Song(name=song_dir, audio_file=audio_file, directory=song_path,
-                                id=len(group.songs), sm_file=sm_file,
+                    song = Song(
+                                song_id=stored_sm_file_entry['song_id'],
+                                name=song_dir,
+                                audio_file=audio_file,
+                                directory=song_path,
+                                sm_file=sm_file,
                                 sm_file_contents=sm_file_contents)
                 else:
                     # SM file has changed, read from filesystem
@@ -108,14 +101,26 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                         logger.error(f"Failed to load {sm_file_path}: {e}")
                         continue
                     logger.info(f"SM file has changed, loading from filesystem for song '{song_dir}'.")
-                    # Update the SM file in the database
-                    sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_file_contents)
-                    song = Song(name=song_dir,
+
+                    # Song gets a new ID
+                    song_id = str(uuid4())
+
+                    song = Song(
+                                song_id=song_id,
+                                name=song_dir,
                                 audio_file=audio_file,
                                 directory=song_path,
-                                id=len(group.songs),
                                 sm_file=sm_file,
                                 sm_file_contents=sm_file_contents)
+
+
+                    # Update the SM file in the database
+                    sqlite_db_connector.insert_or_update_sm_file(
+                        path=sm_file_path,
+                        song_id=song_id,
+                        content=sm_file_contents)
+                    song_modification_in_db_needed = True
+
             else:
                 # SM file not in db, read from filesystem
                 try:
@@ -124,30 +129,51 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                     logger.error(f"Failed to load {sm_file_path}: {e}")
                     continue
                 logger.info(f"SM file not in database, loading from filesystem for song '{song_dir}'.")
-                # Insert the SM file into the database
-                sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_file_contents)
-                song = Song(name=song_dir, audio_file=audio_file, directory=song_path,
-                            id=len(group.songs), sm_file=sm_file,
+
+                # Song gets a new ID
+                song_id = str(uuid4())
+
+                song = Song(
+                            song_id=song_id,
+                            name=song_dir,
+                            audio_file=audio_file,
+                            directory=song_path,
+                            sm_file=sm_file,
                             sm_file_contents=sm_file_contents)
 
-            # Load charts from SM file contents
+                # Insert the SM file into the database
+                sqlite_db_connector.insert_or_update_sm_file(
+                                                             path=sm_file_path,
+                                                             song_id=song_id,
+                                                             content=sm_file_contents)
+                song_modification_in_db_needed = True
+
+            # Load charts from SM file contents.
+            # Each chart gets a new GUID, but we'll overwrite this with the existing chart GUID if the chart is already in the database
             song.load_charts_from_sm_file_contents(song.sm_file_contents)
 
             if not song.loaded:
                 continue
 
-            # Check if song exists in the database
-            song_guid = songs_from_db.get(song.directory)
-            if not song_guid:
-                # Song not in db, insert song
-                song_guid = sqlite_db_connector.insert_song(group_guid, song.name, song.directory)
-                # Insert charts into the database
+            # Now that we've loaded the song, modify the song in the database if needed
+            if song_modification_in_db_needed:
+                sqlite_db_connector.upsert_song(song.song_id, group_guid, song.name, song.directory, chart_guids=song.chart_guids)
+                # Then insert charts into the database
                 for chart in song.charts:
-                    sqlite_db_connector.insert_chart(song_guid,
-                                                     sm_file_path,
-                                                     chart.difficulty_name,
-                                                     chart.difficulty_level)
-                # SM file already inserted or updated earlier
+                    sqlite_db_connector.insert_chart(
+                                                     chart_guid=chart.chart_id,
+                                                     song_guid=song.song_id,
+                                                     sm_file_path=sm_file_path,
+                                                     difficulty_name=chart.difficulty_name,
+                                                     difficulty_level=chart.difficulty_level)
+            else:
+                # The song and its charts are up to date in the database.
+
+                # Assign the chart guids from the database to each chart, overwriting the new guids we set earlier
+                chart_guids_from_db = sqlite_db_connector.get_chart_ids_by_song_guid(song.song_id)
+                song.chart_guids = chart_guids_from_db
+                for i in range(len(song.charts)):
+                    song.charts[i].chart_id = chart_guids_from_db[i]
 
             valid_sm_file_paths.add(sm_file_path)
             valid_song_directory_paths.add(song.directory)

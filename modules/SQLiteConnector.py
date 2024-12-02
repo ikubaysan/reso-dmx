@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import time
+import json
 from typing import Optional, List, Dict
 from uuid import uuid4
 import logging
@@ -39,6 +40,7 @@ class SQLiteConnector:
             CREATE TABLE IF NOT EXISTS songs (
                 guid TEXT PRIMARY KEY,
                 group_guid TEXT NOT NULL,
+                chart_guids TEXT,
                 name TEXT NOT NULL,
                 directory_path TEXT NOT NULL UNIQUE,
                 FOREIGN KEY(group_guid) REFERENCES groups(guid),
@@ -58,6 +60,7 @@ class SQLiteConnector:
 
             CREATE TABLE IF NOT EXISTS sm_files (
                 path TEXT PRIMARY KEY,
+                song_id TEXT,
                 last_modified REAL NOT NULL,
                 content TEXT NOT NULL
             );
@@ -82,10 +85,10 @@ class SQLiteConnector:
         if not paths:
             return {}
         placeholders = ','.join(['?'] * len(paths))
-        query = f"SELECT path, last_modified, content FROM sm_files WHERE path IN ({placeholders})"
+        query = f"SELECT song_id, path, last_modified, content FROM sm_files WHERE path IN ({placeholders})"
         cursor.execute(query, paths)
         rows = cursor.fetchall()
-        return {row[0]: {'last_modified': row[1], 'content': row[2]} for row in rows}
+        return {row[1]: {'song_id': row[0], 'last_modified': row[2], 'content': row[3]} for row in rows}
 
     def get_songs_by_directory_paths(self, paths: List[str]) -> Dict[str, str]:
         cursor = self.conn.cursor()
@@ -103,8 +106,13 @@ class SQLiteConnector:
         row = cursor.fetchone()
         return row[0] if row else None
 
+    def get_chart_ids_by_song_guid(self, song_guid: str) -> List[str]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT chart_guids FROM songs WHERE guid = ?", (song_guid,))
+        row = cursor.fetchone()
+        return json.loads(row[0]) if row else []
 
-    def insert_song(self, group_guid: str, name: str, directory_path: str) -> str:
+    def upsert_song(self, song_guid: str, group_guid: str, name: str, directory_path: str, chart_guids: List[str]):
         cursor = self.conn.cursor()
         cursor.execute("SELECT guid FROM songs WHERE directory_path = ?", (directory_path,))
         row = cursor.fetchone()
@@ -112,35 +120,41 @@ class SQLiteConnector:
             guid = row[0]
             # Update the song's name and group_guid if necessary
             cursor.execute("""
-                UPDATE songs SET name = ?, group_guid = ? WHERE guid = ?
-            """, (name, group_guid, guid))
+                UPDATE songs SET name = ?, group_guid = ?, chart_guids = ? WHERE guid = ?
+            """, (name, group_guid, json.dumps(chart_guids), guid))
             self.conn.commit()
         else:
-            guid = str(uuid4())
-            cursor.execute("INSERT INTO songs (guid, group_guid, name, directory_path) VALUES (?, ?, ?, ?)",
-                           (guid, group_guid, name, directory_path))
+            cursor.execute("INSERT INTO songs (guid, group_guid, chart_guids, name, directory_path) VALUES (?, ?, ?, ?, ?)",
+                           (song_guid, group_guid, json.dumps(chart_guids), name, directory_path))
             self.conn.commit()
-            logger.info(f"New song added: {name} (GUID: {guid})")
-        return guid
+            logger.info(f"New song added: {name} (GUID: {song_guid})")
 
-    def insert_chart(self, song_guid: str, sm_file_path: str, difficulty_name: str, difficulty_level: int) -> str:
+    def get_chart_id(self, song_guid: str, difficulty_name: str, difficulty_level: int) -> Optional[str]:
         cursor = self.conn.cursor()
         cursor.execute("""
             SELECT guid FROM charts
             WHERE song_guid = ? AND difficulty_name = ? AND difficulty_level = ?
         """, (song_guid, difficulty_name, difficulty_level))
         row = cursor.fetchone()
+        return row[0] if row else None
+
+    def insert_chart(self, chart_guid: str, song_guid: str, sm_file_path: str, difficulty_name: str, difficulty_level: int):
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT guid FROM charts
+            WHERE song_guid = ? AND difficulty_name = ? AND difficulty_level = ?
+        """, (song_guid, difficulty_name, difficulty_level))
+        row = cursor.fetchone()
+        # If the chart already exists, nothing to do
         if row:
-            guid = row[0]
-        else:
-            guid = str(uuid4())
-            cursor.execute("""
-                INSERT INTO charts (guid, song_guid, path, difficulty_name, difficulty_level)
-                VALUES (?, ?, ?, ?, ?)
-            """, (guid, song_guid, sm_file_path, difficulty_name, difficulty_level))
-            self.conn.commit()
-            logger.info(f"New chart added: {difficulty_name} (Level: {difficulty_level}, GUID: {guid})")
-        return guid
+            return
+
+        cursor.execute("""
+            INSERT INTO charts (guid, song_guid, path, difficulty_name, difficulty_level)
+            VALUES (?, ?, ?, ?, ?)
+        """, (chart_guid, song_guid, sm_file_path, difficulty_name, difficulty_level))
+        self.conn.commit()
+        logger.info(f"New chart added: {difficulty_name} (Level: {difficulty_level}, GUID: {chart_guid})")
 
     def delete_charts_by_song_guid(self, song_guid: str):
         cursor = self.conn.cursor()
@@ -148,7 +162,7 @@ class SQLiteConnector:
         self.conn.commit()
         logger.info(f"Deleted all charts for song GUID: {song_guid}")
 
-    def insert_or_update_sm_file(self, path: str, content: str) -> None:
+    def insert_or_update_sm_file(self, song_id: str, path: str, content: str) -> None:
         """
         Inserts or updates an SM file record in the database.
 
@@ -158,11 +172,11 @@ class SQLiteConnector:
         last_modified = os.path.getmtime(path)
         cursor = self.conn.cursor()
         cursor.execute("""
-            INSERT INTO sm_files (path, last_modified, content)
-            VALUES (?, ?, ?)
+            INSERT INTO sm_files (path, song_id, last_modified, content)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT(path)
-            DO UPDATE SET last_modified = excluded.last_modified, content = excluded.content;
-        """, (path, last_modified, content))
+            DO UPDATE SET song_id=excluded.song_id, last_modified = excluded.last_modified, content = excluded.content;
+        """, (path, song_id, last_modified, content))
         self.conn.commit()
 
     def get_sm_file_last_modified(self, path: str) -> Optional[float]:

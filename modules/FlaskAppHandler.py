@@ -33,70 +33,11 @@ class FlaskAppHandler:
         self.setup_logging()
         self.force_always_precalculate_beats = False
 
-        # self.sync_with_sqlite_database()
-
         self.logger.info(f"Flask server started on {self.host}:{self.port} with root directory {os.path.abspath(self.root_directory)}")
         if base_url:
             self.logger.info(f"Base URL: {self.base_url}")
         else:
             self.logger.info(f"No base URL provided. Using IP address and port.")
-
-    def sync_with_sqlite_database(self):
-        valid_group_guids = []
-        valid_song_guids = []
-        valid_sm_file_paths = set()  # Track all SM files currently in the filesystem
-        valid_song_paths = set()  # Track all song paths currently in the filesystem
-
-        logger.info("Syncing sqlite database with filesystem...")
-
-        for group in self.groups:
-            # Insert group and track its GUID
-            group_guid = self.sqlite_db_connector.insert_group(group.name)
-            valid_group_guids.append(group_guid)
-
-            for song in group.songs:
-                song_path = song.directory  # Full path to the song's directory
-                valid_song_paths.add(song_path)
-
-                sm_file_path = os.path.join(song.directory, song.sm_file_name)
-                valid_sm_file_paths.add(sm_file_path)
-                last_modified = os.path.getmtime(sm_file_path)
-                stored_last_modified = self.sqlite_db_connector.get_sm_file_last_modified(sm_file_path)
-
-                # Handle modified or new SM files
-                if stored_last_modified is None:
-                    logger.info(f"New SM file detected: {sm_file_path}.")
-                elif last_modified > stored_last_modified:
-                    logger.info(f"SM file modified: {sm_file_path}. Reloading charts for this song.")
-                    # Delete existing charts
-                    song_guid = self.sqlite_db_connector.get_song_guid_by_path(song_path)
-                    if song_guid:
-                        self.sqlite_db_connector.delete_charts_by_song_guid(song_guid)
-
-                try:
-                    sm_content = read_file_with_encodings(sm_file_path)
-                except Exception as e:
-                    logger.error(f"Failed to load {sm_file_path}: {e}")
-                    continue
-
-                self.sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_content)
-
-                # Insert song and track its GUID
-                song_guid = self.sqlite_db_connector.insert_song(group_guid, song.name, song_path)
-                valid_song_guids.append(song_guid)
-
-                # Insert charts for the song
-                for chart in song.charts:
-                    self.sqlite_db_connector.insert_chart(
-                        song_guid=song_guid,
-                        difficulty_name=chart.difficulty_name,
-                        difficulty_level=chart.difficulty_level
-                    )
-
-        # Cleanup orphaned records
-        self.sqlite_db_connector.cleanup_orphaned_records(valid_group_guids, valid_song_guids, valid_sm_file_paths,
-                                                          valid_song_paths)
-        logger.info("SQLite database sync complete.")
 
     def setup_logging(self):
         self.logger = logging.getLogger(__name__)
@@ -335,6 +276,7 @@ class FlaskAppHandler:
             _, song = self.validate_indices(group_idx, song_idx)
             if chart_idx >= len(song.charts) or chart_idx < 0:
                 abort(404)
+
             chart = song.charts[chart_idx]
 
             if chart.beats_as_resonite_string == "" or self.force_always_precalculate_beats:
@@ -394,7 +336,7 @@ class FlaskAppHandler:
         }
         file_name = file_map[file_type]
         file_path = f"{group.name}/{song.folder_name}/{file_name}"
-        file_guid = song.uuid
+        file_guid = song.song_id
         if file_guid not in self.file_guid_map:
             self.file_guid_map[file_guid] = {}
         self.file_guid_map[file_guid][file_type] = file_path
