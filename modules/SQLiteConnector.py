@@ -51,6 +51,7 @@ class SQLiteConnector:
                 path TEXT NOT NULL,
                 difficulty_name TEXT NOT NULL,
                 difficulty_level INTEGER NOT NULL,
+                note_count INTEGER,
                 FOREIGN KEY(song_guid) REFERENCES songs(guid),
                 UNIQUE(song_guid, difficulty_name, difficulty_level)
             );
@@ -76,7 +77,25 @@ class SQLiteConnector:
             logger.info(f"New group added: {directory_path} (GUID: {guid})")
         return guid
 
+    def get_sm_files_for_paths(self, paths: List[str]) -> Dict[str, Dict]:
+        cursor = self.conn.cursor()
+        if not paths:
+            return {}
+        placeholders = ','.join(['?'] * len(paths))
+        query = f"SELECT path, last_modified, content FROM sm_files WHERE path IN ({placeholders})"
+        cursor.execute(query, paths)
+        rows = cursor.fetchall()
+        return {row[0]: {'last_modified': row[1], 'content': row[2]} for row in rows}
 
+    def get_songs_by_directory_paths(self, paths: List[str]) -> Dict[str, str]:
+        cursor = self.conn.cursor()
+        if not paths:
+            return {}
+        placeholders = ','.join(['?'] * len(paths))
+        query = f"SELECT directory_path, guid FROM songs WHERE directory_path IN ({placeholders})"
+        cursor.execute(query, paths)
+        rows = cursor.fetchall()
+        return {row[0]: row[1] for row in rows}
 
     def get_song_guid_by_directory_path(self, directory_path: str) -> Optional[str]:
         cursor = self.conn.cursor()

@@ -45,68 +45,120 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
             continue
 
         group_directory_path = os.path.join(root_directory, group_dir)
-        if os.path.isdir(group_directory_path):
-            group = Group(group_dir)
-            group_guid = sqlite_db_connector.insert_group(name=group.name, directory_path=group_directory_path)
-            valid_group_directory_paths.add(group_directory_path)
+        if not os.path.isdir(group_directory_path):
+            logger.warning(f"Skipping non-directory '{group_dir}'.")
+            continue
 
-            for song_dir in os.listdir(group_directory_path):
-                song_path = os.path.join(group_directory_path, song_dir)
-                if os.path.isdir(song_path):
-                    song_files = os.listdir(song_path)
-                    audio_file = next(
-                        (f for f in song_files if f.endswith(('.ogg', '.mp3')) and "reso-dmx-sample" not in f), None)
-                    sm_file = next((f for f in song_files if f.endswith('.sm')), None)
+        group = Group(group_dir)
+        group_guid = sqlite_db_connector.insert_group(name=group.name, directory_path=group_directory_path)
+        valid_group_directory_paths.add(group_directory_path)
 
-                    if audio_file and sm_file:
-                        song = Song(name=song_dir, audio_file=audio_file, directory=song_path, id=len(group.songs),
-                                    sm_file=sm_file)
-                        song.load_charts_from_sm_file()
+        # Initialize per group lists
+        sm_file_paths = []
+        song_directory_paths = []
+        song_info_list = []
 
-                        if not song.loaded:
-                            continue
+        for song_dir in os.listdir(group_directory_path):
+            song_path = os.path.join(group_directory_path, song_dir)
+            if os.path.isdir(song_path):
+                song_files = os.listdir(song_path)
+                audio_file = next(
+                    (f for f in song_files if f.endswith(('.ogg', '.mp3')) and "reso-dmx-sample" not in f), None)
+                sm_file = next((f for f in song_files if f.endswith('.sm')), None)
 
-                        sm_file_path = os.path.join(song.directory, song.sm_file_name)
-                        valid_sm_file_paths.add(sm_file_path)
+                if audio_file and sm_file:
+                    sm_file_path = os.path.join(song_path, sm_file)
+                    sm_file_paths.append(sm_file_path)
+                    song_directory_paths.append(song_path)
+                    # Store info for later processing
+                    song_info_list.append({'song_dir': song_dir,
+                                           'audio_file': audio_file,
+                                           'song_path': song_path,
+                                           'sm_file': sm_file,
+                                           'sm_file_path': sm_file_path})
 
-                        last_modified = os.path.getmtime(sm_file_path)
-                        stored_last_modified = sqlite_db_connector.get_sm_file_last_modified(sm_file_path)
+        # Batch fetch SM files and songs from the database
+        sm_files_from_db = sqlite_db_connector.get_sm_files_for_paths(sm_file_paths)
+        songs_from_db = sqlite_db_connector.get_songs_by_directory_paths(song_directory_paths)
 
-                        if stored_last_modified:
-                            # Since the song already exists in the db, we can get the GUID from the db
-                            song_guid = sqlite_db_connector.get_song_guid_by_directory_path(song.directory)
-                            # The song already exists in the db
-                            # Need to update the sm file in the db if it has changed
-                            if last_modified > stored_last_modified:
-                                sqlite_db_connector.insert_or_update_sm_file(sm_file_path, song.sm_file_contents)
-                                # Insert charts into the database
-                                for chart in song.charts:
-                                    sqlite_db_connector.insert_chart(song_guid,
-                                                                     sm_file_path,
-                                                                     chart.difficulty_name,
-                                                                     chart.difficulty_level)
-                            else:
-                                # The song already exists in the db and the sm file has not changed
-                                pass
-                        else:
-                            # The song does not exist in the db yet, we need to insert it and generate a GUID for it
-                            song_guid = sqlite_db_connector.insert_song(group_guid, song.name, song.directory)
-                            # Insert charts into the database
-                            for chart in song.charts:
-                                sqlite_db_connector.insert_chart(song_guid,
-                                                                 sm_file_path,
-                                                                 chart.difficulty_name,
-                                                                 chart.difficulty_level)
-                            sqlite_db_connector.insert_or_update_sm_file(sm_file_path, song.sm_file_contents)
+        for song_info in song_info_list:
+            song_dir = song_info['song_dir']
+            audio_file = song_info['audio_file']
+            song_path = song_info['song_path']
+            sm_file = song_info['sm_file']
+            sm_file_path = song_info['sm_file_path']
 
-                        valid_song_directory_paths.add(song.directory)
-                        group.songs.append(song)
+            last_modified = os.path.getmtime(sm_file_path)
+            stored_sm_file_entry = sm_files_from_db.get(sm_file_path)
 
-            groups.append(group)
-            logger.info(f"Processed group '{group.name}' with {len(group.songs)} songs.")
+            if stored_sm_file_entry:
+                stored_last_modified = stored_sm_file_entry['last_modified']
+                if last_modified <= stored_last_modified:
+                    # SM file has not changed, load content from db
+                    sm_file_contents = stored_sm_file_entry['content']
+                    # logger.info(f"Loading SM file from database for song '{song_dir}'.")
+                    song = Song(name=song_dir, audio_file=audio_file, directory=song_path,
+                                id=len(group.songs), sm_file=sm_file,
+                                sm_file_contents=sm_file_contents)
+                else:
+                    # SM file has changed, read from filesystem
+                    try:
+                        sm_file_contents = read_file_with_encodings(sm_file_path)
+                    except Exception as e:
+                        logger.error(f"Failed to load {sm_file_path}: {e}")
+                        continue
+                    logger.info(f"SM file has changed, loading from filesystem for song '{song_dir}'.")
+                    # Update the SM file in the database
+                    sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_file_contents)
+                    song = Song(name=song_dir,
+                                audio_file=audio_file,
+                                directory=song_path,
+                                id=len(group.songs),
+                                sm_file=sm_file,
+                                sm_file_contents=sm_file_contents)
+            else:
+                # SM file not in db, read from filesystem
+                try:
+                    sm_file_contents = read_file_with_encodings(sm_file_path)
+                except Exception as e:
+                    logger.error(f"Failed to load {sm_file_path}: {e}")
+                    continue
+                logger.info(f"SM file not in database, loading from filesystem for song '{song_dir}'.")
+                # Insert the SM file into the database
+                sqlite_db_connector.insert_or_update_sm_file(sm_file_path, sm_file_contents)
+                song = Song(name=song_dir, audio_file=audio_file, directory=song_path,
+                            id=len(group.songs), sm_file=sm_file,
+                            sm_file_contents=sm_file_contents)
+
+            # Load charts from SM file contents
+            song.load_charts_from_sm_file_contents(song.sm_file_contents)
+
+            if not song.loaded:
+                continue
+
+            # Check if song exists in the database
+            song_guid = songs_from_db.get(song.directory)
+            if not song_guid:
+                # Song not in db, insert song
+                song_guid = sqlite_db_connector.insert_song(group_guid, song.name, song.directory)
+                # Insert charts into the database
+                for chart in song.charts:
+                    sqlite_db_connector.insert_chart(song_guid,
+                                                     sm_file_path,
+                                                     chart.difficulty_name,
+                                                     chart.difficulty_level)
+                # SM file already inserted or updated earlier
+
+            valid_sm_file_paths.add(sm_file_path)
+            valid_song_directory_paths.add(song.directory)
+            group.songs.append(song)
+
+        groups.append(group)
+        logger.info(f"Processed group '{group.name}' with {len(group.songs)} songs.")
 
     # Clean up orphaned records
     sqlite_db_connector.cleanup_orphaned_records(valid_group_directory_paths,
                                                  valid_song_directory_paths,
                                                  valid_sm_file_paths)
     return groups
+
