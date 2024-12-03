@@ -164,7 +164,7 @@ class Song:
         self.title = title
         self.artist = artist
         self.sample_start = sample_start
-        self.sample_length = sample_length
+        self.sample_length = sample_length if sample_length > 0 else 10.0
         self.offset = offset
 
         self.bpms = bpms
