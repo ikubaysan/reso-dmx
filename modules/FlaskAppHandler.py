@@ -350,33 +350,37 @@ class FlaskAppHandler:
                         methods=['GET'])
         def get_chart_levels_and_note_counts(group_idx, song_idx):
             """
-            Returns chart information with consistent character width for each chart, removing leading zeros
-            and padding with spaces after the "Notes" part where necessary.
+            Returns chart information with consistent formatting for each chart.
 
-            Total characters per chart info: 22
+            Total characters per chart info:
             - "Lv. <level>\n": 6 characters
-                - Example: "Lv. 99\n" or "Lv. 5 \n"
-            - "<note_count> Notes": 16 characters
-                - Example: "999999 Notes   " or "999 Notes      "
+                - Example: "Lv. 10\n" or "Lv. 5 \n"
+            - "<note_count> Notes\n": Variable width, aligned without extra spaces.
+            - "PB: <percentage>%\n": Padded to the right to align the total character width.
 
             Example Output:
-            Lv. 99
-            999999 Notes   Lv. 1
-            9999 Notes     Lv. 5
-            999 Notes
+            Lv. 10
+            328 Notes
+            PB: 84.23%
 
             Explanation:
             - Each "Lv. <level>" is right-aligned and takes exactly 6 characters.
-            - Each "<note_count> Notes" section takes exactly 16 characters, with padding spaces added after "Notes".
+            - "<note_count> Notes" does not include unnecessary padding after "Notes."
+            - "PB: <percentage>%" line has padding added to the end to align the total width.
+
             """
             _, song = self.validate_indices(group_idx, song_idx)
 
-            # Max width for the note count and "Notes" section
-            max_note_section_width = 16
+            # Fixed lengths for alignment
+            total_width = 20  # Total width for each chart block
+
+            # Hardcoded PB value for now
+            pb_value = "00.00%"
 
             return "".join([
-                f"Lv. {str(chart.difficulty_level)}{' ' * (2 - len(str(chart.difficulty_level)))}\n"
-                f"{str(chart.note_count)} Notes{' ' * (max_note_section_width - len(str(chart.note_count)) - 6)}"
+                f"Lv. {str(chart.difficulty_level).rjust(2)}\n"
+                f"{str(chart.note_count)} Notes\n"
+                f"PB: {pb_value}{' ' * (total_width - len(pb_value) - 4)}\n"
                 for chart in song.charts
             ])
 
