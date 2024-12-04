@@ -66,7 +66,6 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
 
         # Batch fetch SM files and songs from the database
         sm_files_from_db = sqlite_db_connector.get_sm_files_for_paths(sm_file_paths)
-        songs_from_db = sqlite_db_connector.get_songs_by_directory_paths(song_directory_paths)
 
         for song_info in song_info_list:
             song_dir = song_info['song_dir']
