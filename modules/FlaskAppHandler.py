@@ -55,6 +55,21 @@ class FlaskAppHandler:
             return group, group.songs[song_idx]
         return group, None
 
+    def resolve_chart_guid(self, group_idx: int, song_idx: int, chart_idx: int) -> str:
+        """
+        Resolves the GUID of a chart based on the group, song, and chart indices.
+
+        :param group_idx: Index of the group in the list of groups.
+        :param song_idx: Index of the song within the specified group.
+        :param chart_idx: Index of the chart within the specified song.
+        :return: The GUID of the specified chart.
+        :raises HTTPException: 404 error if the indices are invalid.
+        """
+        group, song = self.validate_indices(group_idx, song_idx)
+        if chart_idx < 0 or chart_idx >= len(song.charts):
+            abort(404, description="Invalid chart index.")
+        return song.charts[chart_idx].chart_id
+
     def setup_db_routes(self):
         """
         Set up API routes for interacting with the database.
@@ -63,36 +78,50 @@ class FlaskAppHandler:
         @self.app.route('/db/score', methods=['GET', 'POST'])
         def score():
             """
-            Add or retrieve a score entry.
-            - POST Example URL: /db/score?user_id=player1&group_id=group1&song_id=song1&chart_id=chart1&percentage_score=95.5&timestamp=1699999999
-            - GET Example URL: /db/score?user_id=player1&group_id=group1&song_id=song1&chart_id=chart1
-            """
-            if request.method == 'POST':
-                # Adding a score
-                user_id = request.args.get('user_id')
-                group_id = request.args.get('group_id')
-                song_id = request.args.get('song_id')
-                chart_id = request.args.get('chart_id')
-                percentage_score = float(request.args.get('percentage_score', 0))
-                timestamp = int(request.args.get('timestamp', 0))
+            Handles adding or retrieving a score entry for a chart.
 
-                if not all([user_id, group_id, song_id, chart_id, percentage_score, timestamp]):
+            POST:
+            Adds a score for a specific user and chart.
+            Example URL: /db/score?user_id=player1&group_idx=0&song_idx=1&chart_idx=2&percentage_score=95.5&timestamp=1699999999
+
+            GET:
+            Retrieves a score for a specific user and chart.
+            Example URL: /db/score?user_id=player1&group_idx=0&song_idx=1&chart_idx=2
+
+            :query user_id: (str) The ID of the user.
+            :query group_idx: (int) The index of the group.
+            :query song_idx: (int) The index of the song in the group.
+            :query chart_idx: (int) The index of the chart in the song.
+            :query percentage_score: (float, POST only) The score percentage achieved.
+            :query timestamp: (int, POST only) The UNIX timestamp of when the score was achieved.
+            :return: JSON response indicating success or the retrieved score.
+            """
+            user_id = request.args.get('user_id')
+            group_idx = request.args.get('group_idx', type=int)
+            song_idx = request.args.get('song_idx', type=int)
+            chart_idx = request.args.get('chart_idx', type=int)
+
+            if not all([user_id, group_idx, song_idx, chart_idx]):
+                return make_response("Missing parameters", 400)
+
+            # Resolve chart GUID
+            try:
+                chart_guid = self.resolve_chart_guid(group_idx, song_idx, chart_idx)
+            except Exception as e:
+                return make_response(str(e), 404)
+
+            if request.method == 'POST':
+                percentage_score = request.args.get('percentage_score', type=float)
+                timestamp = request.args.get('timestamp', type=int)
+
+                if percentage_score is None or timestamp is None:
                     return make_response("Missing parameters", 400)
 
-                self.mongodb_client.add_score(user_id, group_id, song_id, chart_id, percentage_score, timestamp)
+                self.mongodb_client.add_score(user_id, chart_guid, percentage_score, timestamp)
                 return jsonify({"message": "Score added successfully"})
 
             elif request.method == 'GET':
-                # Retrieving a score
-                user_id = request.args.get('user_id')
-                group_id = request.args.get('group_id')
-                song_id = request.args.get('song_id')
-                chart_id = request.args.get('chart_id')
-
-                if not all([user_id, group_id, song_id, chart_id]):
-                    return make_response("Missing parameters", 400)
-
-                score = self.mongodb_client.get_user_score(user_id, group_id, song_id, chart_id)
+                score = self.mongodb_client.get_user_score(user_id, chart_guid)
                 if score:
                     return jsonify(score)
                 else:
