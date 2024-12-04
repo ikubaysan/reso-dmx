@@ -340,8 +340,44 @@ class FlaskAppHandler:
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/chart_levels', methods=['GET'])
         def get_chart_levels(group_idx, song_idx):
             _, song = self.validate_indices(group_idx, song_idx)
-            # A single string where each difficulty is padded with 0 to be 2 digits and separated by "|"
+            # A single string where each difficulty is padded with 0 to be 2 digits
             return "".join([str(chart.difficulty_level).zfill(2) for chart in song.charts])
+
+
+        # route to get a list of difficulty levels with their note counts for a song
+        @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/chart_levels_and_note_counts',
+                        methods=['GET'])
+        def get_chart_levels_and_note_counts(group_idx, song_idx):
+            """
+            Returns chart information with consistent character width for each chart, removing leading zeros
+            and padding with spaces after the "Notes" part where necessary.
+
+            Total characters per chart info: 22
+            - "Lv. <level>\n": 6 characters
+                - Example: "Lv. 99\n" or "Lv. 5 \n"
+            - "<note_count> Notes": 16 characters
+                - Example: "999999 Notes   " or "999 Notes      "
+
+            Example Output:
+            Lv. 99
+            999999 Notes   Lv. 1
+            9999 Notes     Lv. 5
+            999 Notes
+
+            Explanation:
+            - Each "Lv. <level>" is right-aligned and takes exactly 6 characters.
+            - Each "<note_count> Notes" section takes exactly 16 characters, with padding spaces added after "Notes".
+            """
+            _, song = self.validate_indices(group_idx, song_idx)
+
+            # Max width for the note count and "Notes" section
+            max_note_section_width = 16
+
+            return "".join([
+                f"Lv. {str(chart.difficulty_level)}{' ' * (2 - len(str(chart.difficulty_level)))}\n"
+                f"{str(chart.note_count)} Notes{' ' * (max_note_section_width - len(str(chart.note_count)) - 6)}"
+                for chart in song.charts
+            ])
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/notes', methods=['GET'])
         def get_chart_measures(group_idx, song_idx, chart_idx):
@@ -350,18 +386,7 @@ class FlaskAppHandler:
                 abort(404)
 
             chart = song.charts[chart_idx]
-
-            if chart.beats_as_resonite_string == "" or self.force_always_precalculate_beats:
-                # We have not precalculated the beats for this chart yet
-                beats, note_count = precalculate_beats(song=song, chart=chart, exclude_inactive_beats=True)
-                resonite_string = get_beats_as_resonite_string(beats)
-
-                chart.note_count = note_count
-                chart.beats = beats
-                chart.beats_as_resonite_string = resonite_string
-            else:
-                logger.info(f"Using precalculated beats for {song.name} - {chart.difficulty_name}")
-                resonite_string = chart.beats_as_resonite_string
+            resonite_string = chart.beats_as_resonite_string
 
             return resonite_string
 

@@ -42,6 +42,13 @@ class SQLiteConnector:
                 group_guid TEXT NOT NULL,
                 chart_guids TEXT,
                 name TEXT NOT NULL,
+                title TEXT,
+                artist TEXT,
+                sample_start REAL,
+                sample_length REAL,
+                offset REAL,
+                bpms TEXT,
+                stops TEXT,
                 directory_path TEXT NOT NULL UNIQUE,
                 FOREIGN KEY(group_guid) REFERENCES groups(guid),
                 UNIQUE(group_guid, name)
@@ -53,7 +60,9 @@ class SQLiteConnector:
                 path TEXT NOT NULL,
                 difficulty_name TEXT NOT NULL,
                 difficulty_level INTEGER NOT NULL,
+                mode TEXT,
                 note_count INTEGER,
+                beats_as_resonite_string TEXT,
                 FOREIGN KEY(song_guid) REFERENCES songs(guid),
                 UNIQUE(song_guid, difficulty_name, difficulty_level)
             );
@@ -112,7 +121,73 @@ class SQLiteConnector:
         row = cursor.fetchone()
         return json.loads(row[0]) if row else []
 
-    def upsert_song(self, song_guid: str, group_guid: str, name: str, directory_path: str, chart_guids: List[str]):
+    def get_charts_by_song_guid(self, song_guid: str) -> List[Dict]:
+        """
+        Retrieves all charts for a song by song GUID, sorted by difficulty level and note count.
+        :param song_guid:
+        :return:
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT guid, path, difficulty_name, difficulty_level, mode, note_count, beats_as_resonite_string 
+            FROM charts 
+            WHERE song_guid = ? 
+            ORDER BY difficulty_level ASC, note_count ASC
+            """,
+            (song_guid,)
+        )
+        rows = cursor.fetchall()
+        return [
+            {
+                "guid": row[0],
+                "path": row[1],
+                "difficulty_name": row[2],
+                "difficulty_level": row[3],
+                "mode": row[4],
+                "note_count": row[5],
+                "beats_as_resonite_string": row[6],
+            }
+            for row in rows
+        ]
+
+    def get_song_by_song_guid(self, song_guid: str) -> Optional[Dict]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM songs WHERE guid = ?", (song_guid,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        return {
+            "guid": row[0],
+            "group_guid": row[1],
+            "chart_guids": row[2],
+            "name": row[3],
+            "title": row[4],
+            "artist": row[5],
+            "sample_start": row[6],
+            "sample_length": row[7],
+            "offset": row[8],
+            "bpms": json.loads(row[9]),
+            "stops": json.loads(row[10]),
+            "directory_path": row[11]
+        }
+
+
+    def upsert_song(self,
+                    song_guid: str,
+                    group_guid: str,
+                    name: str,
+                    title: str,
+                    directory_path: str,
+                    artist: str,
+                    sample_start: float,
+                    sample_length: float,
+                    offset: float,
+                    bpms: List[List[float]],
+                    stops: List[float],
+                    chart_guids: List[str]
+                    ):
         cursor = self.conn.cursor()
         cursor.execute("SELECT guid FROM songs WHERE directory_path = ?", (directory_path,))
         row = cursor.fetchone()
@@ -124,8 +199,11 @@ class SQLiteConnector:
             """, (name, group_guid, json.dumps(chart_guids), guid))
             self.conn.commit()
         else:
-            cursor.execute("INSERT INTO songs (guid, group_guid, chart_guids, name, directory_path) VALUES (?, ?, ?, ?, ?)",
-                           (song_guid, group_guid, json.dumps(chart_guids), name, directory_path))
+            cursor.execute("INSERT INTO songs (guid, group_guid, chart_guids, name, title, directory_path, artist, "
+                           "sample_start, sample_length, offset, bpms, stops) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (song_guid, group_guid, json.dumps(chart_guids), name, title, directory_path, artist,
+                             sample_start, sample_length, offset, json.dumps(bpms), json.dumps(stops)))
+
             self.conn.commit()
             logger.info(f"New song added: {name} (GUID: {song_guid})")
 
@@ -138,7 +216,15 @@ class SQLiteConnector:
         row = cursor.fetchone()
         return row[0] if row else None
 
-    def insert_chart(self, chart_guid: str, song_guid: str, sm_file_path: str, difficulty_name: str, difficulty_level: int):
+    def insert_chart(self,
+                     chart_guid: str,
+                     song_guid: str,
+                     sm_file_path: str,
+                     difficulty_name: str,
+                     difficulty_level: int,
+                     mode: str,
+                     note_count: int,
+                     beats_as_resonite_string: str):
         cursor = self.conn.cursor()
         cursor.execute("""
             SELECT guid FROM charts
@@ -150,9 +236,10 @@ class SQLiteConnector:
             return
 
         cursor.execute("""
-            INSERT INTO charts (guid, song_guid, path, difficulty_name, difficulty_level)
-            VALUES (?, ?, ?, ?, ?)
-        """, (chart_guid, song_guid, sm_file_path, difficulty_name, difficulty_level))
+            INSERT INTO charts (guid, song_guid, path, difficulty_name, difficulty_level, mode, note_count, beats_as_resonite_string)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (chart_guid, song_guid, sm_file_path, difficulty_name,
+              difficulty_level, mode, note_count, beats_as_resonite_string))
         self.conn.commit()
         logger.info(f"New chart added: {difficulty_name} (Level: {difficulty_level}, GUID: {chart_guid})")
 

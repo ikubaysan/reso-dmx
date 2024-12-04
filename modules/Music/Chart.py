@@ -4,7 +4,15 @@ from typing import Optional
 from uuid import uuid4
 
 class Chart:
-    def __init__(self, chart_id: Optional[str], mode: str, difficulty_name: str, difficulty_level: int, measures: List[str]):
+    def __init__(self,
+                 chart_id: Optional[str],
+                 mode: str,
+                 difficulty_name: str,
+                 difficulty_level: int,
+                 measures: list[list[[str]]] = None,
+                 note_count: int = 0,
+                 beats_as_resonite_string: str = "",
+                 ):
         """
         :param mode: "dance-single" or "dance-double"
         :param difficulty_name: "Beginner", "Easy", "Medium", "Hard", "Challenge"
@@ -30,7 +38,7 @@ class Chart:
         self.difficulty_level = difficulty_level
         self.measures = measures
 
-        self.note_count = 0
+        self.note_count = note_count
         self.beats: List[Beat] = []
-        self.beats_as_resonite_string = ""
+        self.beats_as_resonite_string = beats_as_resonite_string
         self.chart_id = chart_id or str(uuid4())

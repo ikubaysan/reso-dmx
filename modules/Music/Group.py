@@ -1,6 +1,9 @@
 from typing import List
 import json
 import logging
+
+from modules.Music.Beat import precalculate_beats, get_beats_as_resonite_string
+from modules.Music.Chart import Chart
 from modules.Music.Song import Song
 import os
 from modules.utils.FileUtils import read_file_with_encodings
@@ -147,32 +150,83 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                                                              content=sm_file_contents)
                 song_modification_in_db_needed = True
 
-            # Load charts from SM file contents.
-            # Each chart gets a new GUID, but we'll overwrite this with the existing chart GUID if the chart is already in the database
-            song.load_charts_from_sm_file_contents(song.sm_file_contents)
-
-            if not song.loaded:
-                continue
-
             # Now that we've loaded the song, modify the song in the database if needed
             if song_modification_in_db_needed:
-                sqlite_db_connector.upsert_song(song.song_id, group_guid, song.name, song.directory, chart_guids=song.chart_guids)
+                # Load charts and song info from SM file contents.
+                # Each chart gets a new GUID,
+                # but we'll overwrite this with the existing chart GUID if the chart is already in the database
+                song.load_song_info_and_charts_from_sm_file_contents(song.sm_file_contents)
+
+                if not song.loaded:
+                    continue
+
+                sqlite_db_connector.upsert_song(song_guid=song.song_id,
+                                                group_guid=group_guid,
+                                                name=song.name,
+                                                title=song.title,
+                                                directory_path=song.directory,
+                                                artist=song.artist,
+                                                sample_start=song.sample_start,
+                                                sample_length=song.sample_length,
+                                                offset=song.offset,
+                                                bpms=song.bpms,
+                                                stops=song.stops,
+                                                chart_guids=song.chart_guids)
                 # Then insert charts into the database
                 for chart in song.charts:
+
+                    beats, note_count = precalculate_beats(song=song, chart=chart, exclude_inactive_beats=True)
+                    resonite_string = get_beats_as_resonite_string(beats)
+
+                    chart.note_count = note_count
+                    chart.beats = beats
+                    chart.beats_as_resonite_string = resonite_string
+
                     sqlite_db_connector.insert_chart(
                                                      chart_guid=chart.chart_id,
                                                      song_guid=song.song_id,
                                                      sm_file_path=sm_file_path,
                                                      difficulty_name=chart.difficulty_name,
-                                                     difficulty_level=chart.difficulty_level)
+                                                     difficulty_level=chart.difficulty_level,
+                                                     mode=chart.mode,
+                                                     note_count=chart.note_count,
+                                                     beats_as_resonite_string=chart.beats_as_resonite_string)
             else:
                 # The song and its charts are up to date in the database.
 
-                # Assign the chart guids from the database to each chart, overwriting the new guids we set earlier
-                chart_guids_from_db = sqlite_db_connector.get_chart_ids_by_song_guid(song.song_id)
-                song.chart_guids = chart_guids_from_db
-                for i in range(len(song.charts)):
-                    song.charts[i].chart_id = chart_guids_from_db[i]
+                # Load charts and song info from sqlite database
+                song_info = sqlite_db_connector.get_song_by_song_guid(song.song_id)
+                song.title = song_info['title']
+                song.artist = song_info['artist']
+                song.sample_start = song_info['sample_start']
+                song.sample_length = song_info['sample_length']
+                song.offset = song_info['offset']
+                song.bpms = song_info['bpms']
+
+                song.min_bpm = min(bpm[1] for bpm in song.bpms)
+                song.max_bpm = max(bpm[1] for bpm in song.bpms)
+
+                song.stops = song_info['stops']
+
+                # # Assign the chart guids from the database to each chart, overwriting the new guids we set earlier
+                # chart_guids_from_db = sqlite_db_connector.get_chart_ids_by_song_guid(song.song_id)
+                # song.chart_guids = chart_guids_from_db
+                # for i in range(len(song.charts)):
+                #     song.charts[i].chart_id = chart_guids_from_db[i]
+
+                charts_info = sqlite_db_connector.get_charts_by_song_guid(song.song_id)
+                for chart_info in charts_info:
+                    song.charts.append(
+                        Chart(
+                            chart_id=chart_info["guid"],
+                            difficulty_name=chart_info["difficulty_name"],
+                            difficulty_level=chart_info["difficulty_level"],
+                            measures=None,
+                            mode=chart_info["mode"],
+                            note_count=chart_info["note_count"],
+                            beats_as_resonite_string=chart_info["beats_as_resonite_string"]
+                        )
+                    )
 
             valid_sm_file_paths.add(sm_file_path)
             valid_song_directory_paths.add(song.directory)

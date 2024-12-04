@@ -11,7 +11,7 @@ from modules.Music.Chart import Chart
 from pydub import AudioSegment
 from modules.utils.StringUtils import format_seconds
 import logging
-import uuid
+import json
 
 logger = logging.getLogger(__name__)
 current_id = 0
@@ -36,7 +36,7 @@ class Song:
         self.sm_file_contents = sm_file_contents
         self.title = ""
         self.artist = ""
-        self.bpms: List[Tuple[float, float]] = [] # eg [(0.0, 137.7), (4.0, 138.0)]
+        self.bpms: List[List[float]] = []  # eg [[0.0, 137.7], [4.0, 138.0]]
         self.min_bpm = 0.0
         self.max_bpm = 0.0
         self.charts: List[Chart] = []
@@ -148,7 +148,7 @@ class Song:
 
 
 
-    def load_charts_from_sm_file_contents(self, sm_file_contents: str):
+    def load_song_info_and_charts_from_sm_file_contents(self, sm_file_contents: str):
         """
         This needs to be called explicitly after the Song object is created, in order to populate the charts list.
         :param sm_file_path:
@@ -175,8 +175,8 @@ class Song:
 
         self.loaded = True
 
-        self.min_bpm = min(item[1] for item in bpms)
-        self.max_bpm = max(item[1] for item in bpms)
+        self.min_bpm = min(bpm[1] for bpm in self.bpms)
+        self.max_bpm = max(bpm[1] for bpm in self.bpms)
 
         self.stops = stops
 
@@ -204,7 +204,7 @@ class Song:
             logger.error(f"Failed to load {self.sm_file_name} in {self.directory}: {e}")
             return
 
-        self.load_charts_from_sm_file_contents(sm_file_contents=self.sm_file_contents)
+        self.load_song_info_and_charts_from_sm_file_contents(sm_file_contents=self.sm_file_contents)
 
     @staticmethod
     def parse_sm_file_contents(sm_file_contents: str) -> tuple[
@@ -248,7 +248,7 @@ class Song:
                 while not bpms_data.endswith(";"):
                     bpms_data += next(lines).strip()
                 bpms_data = bpms_data.rstrip(";")
-                bpms = [tuple(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
+                bpms = [list(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
             elif line_lower.startswith("#stops:"):
                 stops_data = line.split(":", 1)[1].strip()
                 while not stops_data.endswith(";"):
@@ -280,6 +280,9 @@ class Song:
                     current_difficulty_name = line.rstrip(':').strip()
                 elif line[:-1].isdigit() and current_difficulty_level is None:
                     current_difficulty_level = int(line[:-1])
+                    if current_difficulty_level > 99:
+                        # Ensure difficulty level is only up to 2 digits.
+                        current_difficulty_level = 99
                 elif line.startswith(","):
                     measures.append(notes_data)
                     notes_data = []
