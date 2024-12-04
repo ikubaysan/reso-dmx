@@ -14,6 +14,18 @@ logger = logging.getLogger(__name__)
 from modules.MongoDBClient import MongoDBClient
 from modules.SQLiteConnector import SQLiteConnector
 
+
+def validate_params(params):
+    """
+    Validates that all parameters in the input dictionary are not None.
+
+    :param params: A dictionary where keys are parameter names and values are their values.
+    :return: A list of missing parameter names, or an empty list if all parameters are valid.
+    """
+    missing = [key for key, value in params.items() if value is None]
+    return missing
+
+
 class FlaskAppHandler:
     def __init__(self, config: Config, host='0.0.0.0', base_url="http://servers.ikubaysan.com", port=5731, root_directory='./songs'):
         self.app = Flask(__name__)
@@ -101,12 +113,20 @@ class FlaskAppHandler:
             song_idx = request.args.get('song_idx', type=int)
             chart_idx = request.args.get('chart_idx', type=int)
 
-            if not all([user_id, group_idx, song_idx, chart_idx]):
-                return make_response("Missing parameters", 400)
+            # Validate required parameters
+            required_params = {
+                "user_id": user_id,
+                "group_idx": group_idx,
+                "song_idx": song_idx,
+                "chart_idx": chart_idx,
+            }
+            missing = validate_params(required_params)
+            if missing:
+                return make_response(f"Missing parameters: {', '.join(missing)}", 400)
 
-            # Resolve chart GUID
             try:
                 chart_guid = self.resolve_chart_guid(group_idx, song_idx, chart_idx)
+                group, song = self.validate_indices(group_idx, song_idx)
             except Exception as e:
                 return make_response(str(e), 404)
 
@@ -114,10 +134,20 @@ class FlaskAppHandler:
                 percentage_score = request.args.get('percentage_score', type=float)
                 timestamp = request.args.get('timestamp', type=int)
 
-                if percentage_score is None or timestamp is None:
-                    return make_response("Missing parameters", 400)
+                # Validate additional parameters for POST
+                post_required_params = {
+                    "percentage_score": percentage_score,
+                    "timestamp": timestamp,
+                }
+                missing_post = validate_params(post_required_params)
+                if missing_post:
+                    return make_response(f"Missing parameters: {', '.join(missing_post)}", 400)
 
                 self.mongodb_client.add_score(user_id, chart_guid, percentage_score, timestamp)
+                logger.info(
+                    f"User '{user_id}' posted score {percentage_score} on song '{song.title}' "
+                    f"chart {chart_idx}, from group '{group.name}'."
+                )
                 return jsonify({"message": "Score added successfully"})
 
             elif request.method == 'GET':
@@ -133,15 +163,26 @@ class FlaskAppHandler:
             Retrieve the top scores for a specific chart.
             Example URL: /db/top_scores?group_id=group1&song_id=song1&chart_id=chart1&limit=5
             """
-            group_id = request.args.get('group_id')
-            song_id = request.args.get('song_id')
-            chart_id = request.args.get('chart_id')
+            group_idx = request.args.get('group_id', type=int)
+            song_idx = request.args.get('song_id', type=int)
+            chart_idx = request.args.get('chart_id', type=int)
             limit = int(request.args.get('limit', 10))
 
-            if not all([group_id, song_id, chart_id]):
-                return make_response("Missing parameters", 400)
+            required_params = {
+                "group_idx": group_idx,
+                "song_idx": song_idx,
+                "chart_idx": chart_idx,
+            }
+            missing = validate_params(required_params)
+            if missing:
+                return make_response(f"Missing parameters: {', '.join(missing)}", 400)
 
-            top_scores = self.mongodb_client.get_top_scores(group_id, song_id, chart_id, limit)
+            try:
+                chart_guid = self.resolve_chart_guid(group_idx, song_idx, chart_idx)
+            except Exception as e:
+                return make_response(str(e), 404)
+
+            top_scores = self.mongodb_client.get_top_scores(chart_guid=chart_guid, limit=limit)
             return jsonify(top_scores)
 
 
@@ -175,8 +216,10 @@ class FlaskAppHandler:
                     "button_3": request.args.get('controller_button_3', ''),
                 }
 
-                if not user_id:
-                    return make_response("Missing user_id parameter", 400)
+                required_params = {"user_id": user_id}
+                missing = validate_params(required_params)
+                if missing:
+                    return make_response(f"Missing parameters: {', '.join(missing)}", 400)
 
                 self.mongodb_client.set_user_settings(
                     user_id, scroll_speed, noteskin, controller_type, controller_buttons,
