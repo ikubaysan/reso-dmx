@@ -103,6 +103,37 @@ class MongoDBClient:
         result = self.scores_collection.find_one({"user_id": user_id, "chart_guid": chart_guid})
         return serialize_mongo_document(result)
 
+
+    def delete_scores_for_user(self, user_id: str) -> None:
+        """
+        Deletes all scores for a specific user from the database.
+
+        :param user_id: The ID of the user whose scores should be deleted.
+        """
+        result = self.scores_collection.delete_many({"user_id": user_id})
+        logger.info(f"Deleted {result.deleted_count} scores for user '{user_id}'.")
+
+
+    def delete_scores_for_chart(self, chart_guid: str) -> None:
+        """
+        Deletes all scores for a specific chart from the database.
+
+        :param chart_guid: The GUID of the chart whose scores should be deleted.
+        """
+        result = self.scores_collection.delete_many({"chart_guid": chart_guid})
+        logger.info(f"Deleted {result.deleted_count} scores for chart '{chart_guid}'.")
+
+
+    def delete_scores_for_charts(self, chart_guids: List[str]) -> None:
+        """
+        Deletes all scores for a list of charts from the database.
+
+        :param chart_guids: A list of chart GUIDs whose scores should be deleted.
+        """
+        result = self.scores_collection.delete_many({"chart_guid": {"$in": chart_guids}})
+        logger.info(f"Deleted {result.deleted_count} scores for {len(chart_guids)} charts.")
+
+
     def get_top_scores(self, chart_guid: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Retrieve the top scores for a specific chart by percentage score, ensuring each entry is the best score for a unique user.
@@ -167,16 +198,6 @@ class MongoDBClient:
         """
         result = self.settings_collection.find_one({"user_id": user_id})
         return serialize_mongo_document(result)
-
-    def delete_scores_for_user(self, user_id: str) -> None:
-        """
-        Deletes all scores for a specific user from the database.
-
-        :param user_id: The ID of the user whose scores should be deleted.
-        """
-        result = self.scores_collection.delete_many({"user_id": user_id})
-        logger.info(f"Deleted {result.deleted_count} scores for user '{user_id}'.")
-
 
 if __name__ == "__main__":
     configure_console_logger()

@@ -34,7 +34,8 @@ class FlaskAppHandler:
         self.base_url = base_url
         self.config = config
         self.mongodb_client = MongoDBClient(self.config)
-        self.sqlite_db_connector = SQLiteConnector(os.path.join(os.path.dirname(__file__), "../reso-dmx.sqlite3"))
+        self.sqlite_db_connector = SQLiteConnector(db_path=os.path.join(os.path.dirname(__file__), "../reso-dmx.sqlite3"),
+                                                   mongodb_client=self.mongodb_client)
         self.port = port
         self.root_directory = root_directory
 

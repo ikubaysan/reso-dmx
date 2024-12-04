@@ -4,12 +4,13 @@ import time
 import json
 from typing import Optional, List, Dict
 from uuid import uuid4
+from modules.MongoDBClient import MongoDBClient
 import logging
 
 logger = logging.getLogger(__name__)
 
 class SQLiteConnector:
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, mongodb_client: MongoDBClient):
         """
         Initializes the SQLiteConnector.
 
@@ -18,6 +19,7 @@ class SQLiteConnector:
         self.db_path = os.path.abspath(db_path)
         self.conn = None
         self.create_db_if_not_exists()
+        self.mongodb_client = mongodb_client
 
     def create_db_if_not_exists(self):
         """
@@ -299,9 +301,16 @@ class SQLiteConnector:
 
         # Delete charts associated with the songs that were deleted
         if orphaned_song_guids:
-            placeholders = ','.join('?' * len(orphaned_song_guids))
-            cursor.execute(f"DELETE FROM charts WHERE song_guid IN ({placeholders})", tuple(orphaned_song_guids))
-            logger.info(f"Deleted all charts for {len(orphaned_song_guids)} orphaned songs.")
+            # Get a list of all chart GUIDs associated with the orphaned songs
+            cursor.execute("SELECT guid FROM charts WHERE song_guid IN ({})".format(
+                ','.join(['?'] * len(orphaned_song_guids))), tuple(orphaned_song_guids))
+            orphaned_chart_guids = [row[0] for row in cursor.fetchall()]
+            if orphaned_chart_guids:
+                placeholders = ','.join('?' * len(orphaned_chart_guids))
+                cursor.execute(f"DELETE FROM charts WHERE guid IN ({placeholders})", tuple(orphaned_chart_guids))
+                logger.info(f"Deleted all charts for {len(orphaned_chart_guids)} orphaned songs.")
+                # Then delete scores for each chart in the MongoDB database
+                self.mongodb_client.delete_scores_for_charts(orphaned_chart_guids)
 
         # Delete groups not in valid_group_directory_paths
         if valid_group_directory_paths:
