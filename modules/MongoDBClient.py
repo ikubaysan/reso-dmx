@@ -1,4 +1,4 @@
-# DatabaseClient.py
+# MongoDBClient.py
 
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.server_api import ServerApi
@@ -26,7 +26,7 @@ def serialize_mongo_document(doc):
         return doc
 
 
-class DatabaseClient:
+class MongoDBClient:
     def __init__(self, config: Config):
         """
         Initialize the DatabaseClient with a MongoDB connection.
@@ -185,7 +185,7 @@ class DatabaseClient:
 
 if __name__ == "__main__":
     config = Config('../config.ini')
-    db_client = DatabaseClient(config)
+    db_client = MongoDBClient(config)
 
     # Example usage
     db_client.set_user_settings("player1", 1.5, 0.1, "default")

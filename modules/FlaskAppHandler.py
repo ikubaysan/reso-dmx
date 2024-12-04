@@ -11,7 +11,7 @@ import os
 from modules.utils.Loggers import configure_console_logger
 
 logger = logging.getLogger(__name__)
-from modules.DatabaseClient import DatabaseClient
+from modules.MongoDBClient import MongoDBClient
 from modules.SQLiteConnector import SQLiteConnector
 
 class FlaskAppHandler:
@@ -20,7 +20,7 @@ class FlaskAppHandler:
         self.host = host
         self.base_url = base_url
         self.config = config
-        self.db_client = DatabaseClient(self.config)
+        self.mongodb_client = MongoDBClient(self.config)
         self.sqlite_db_connector = SQLiteConnector(os.path.join(os.path.dirname(__file__), "../reso-dmx.sqlite3"))
         self.port = port
         self.root_directory = root_directory
@@ -79,7 +79,7 @@ class FlaskAppHandler:
                 if not all([user_id, group_id, song_id, chart_id, percentage_score, timestamp]):
                     return make_response("Missing parameters", 400)
 
-                self.db_client.add_score(user_id, group_id, song_id, chart_id, percentage_score, timestamp)
+                self.mongodb_client.add_score(user_id, group_id, song_id, chart_id, percentage_score, timestamp)
                 return jsonify({"message": "Score added successfully"})
 
             elif request.method == 'GET':
@@ -92,7 +92,7 @@ class FlaskAppHandler:
                 if not all([user_id, group_id, song_id, chart_id]):
                     return make_response("Missing parameters", 400)
 
-                score = self.db_client.get_user_score(user_id, group_id, song_id, chart_id)
+                score = self.mongodb_client.get_user_score(user_id, group_id, song_id, chart_id)
                 if score:
                     return jsonify(score)
                 else:
@@ -112,7 +112,7 @@ class FlaskAppHandler:
             if not all([group_id, song_id, chart_id]):
                 return make_response("Missing parameters", 400)
 
-            top_scores = self.db_client.get_top_scores(group_id, song_id, chart_id, limit)
+            top_scores = self.mongodb_client.get_top_scores(group_id, song_id, chart_id, limit)
             return jsonify(top_scores)
 
 
@@ -149,7 +149,7 @@ class FlaskAppHandler:
                 if not user_id:
                     return make_response("Missing user_id parameter", 400)
 
-                self.db_client.set_user_settings(
+                self.mongodb_client.set_user_settings(
                     user_id, scroll_speed, noteskin, controller_type, controller_buttons,
                     visual_timing_offset, judgement_timing_offset,
                     height_of_notes_area, arrow_x_axis_spacing, note_scroll_direction
@@ -165,7 +165,7 @@ class FlaskAppHandler:
                 if not user_id:
                     return make_response("Missing user_id parameter", 400)
 
-                settings = self.db_client.get_user_settings(user_id)
+                settings = self.mongodb_client.get_user_settings(user_id)
                 if not settings:
                     return make_response("Settings not found", 404)
 
