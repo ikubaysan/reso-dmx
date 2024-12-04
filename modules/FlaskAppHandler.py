@@ -352,37 +352,57 @@ class FlaskAppHandler:
             """
             Returns chart information with consistent formatting for each chart.
 
-            Total characters per chart info:
-            - "Lv. <level>\n": 6 characters
-                - Example: "Lv. 10\n" or "Lv. 5 \n"
-            - "<note_count> Notes\n": Variable width, aligned without extra spaces.
-            - "PB: <percentage>%\n": Padded to the right to align the total character width.
+            Each chart block is allocated exactly 35 characters, with spaces appended
+            as needed to ensure consistent length.
 
             Example Output:
-            Lv. 10
-            328 Notes
-            PB: 84.23%
+            Lv.  4
+            147 Notes
+            PB: 54.50%
+
+            Lv.  7
+            284 Notes
+            PB: 00.00%
 
             Explanation:
-            - Each "Lv. <level>" is right-aligned and takes exactly 6 characters.
-            - "<note_count> Notes" does not include unnecessary padding after "Notes."
-            - "PB: <percentage>%" line has padding added to the end to align the total width.
-
+            - Each block contains three lines:
+              - Level: "Lv. <level>"
+              - Note Count: "<note count> Notes"
+              - Personal Best: "PB: <formatted PB %>"
+            - Spaces are appended to the end of each block to make it 35 characters.
             """
             _, song = self.validate_indices(group_idx, song_idx)
 
-            # Fixed lengths for alignment
-            total_width = 20  # Total width for each chart block
+            # Fixed width for each chart block
+            block_width = 35
+            user_id = request.args.get('user_id')
 
-            # Hardcoded PB value for now
-            pb_value = "00.00%"
+            # Get chart IDs and fetch scores in bulk if user_id is provided
+            chart_ids = [chart.chart_id for chart in song.charts]
+            user_scores = (
+                self.mongodb_client.get_user_scores_bulk(user_id, chart_ids) if user_id else {}
+            )
 
-            return "".join([
-                f"Lv. {str(chart.difficulty_level).rjust(2)}\n"
-                f"{str(chart.note_count)} Notes\n"
-                f"PB: {pb_value}{' ' * (total_width - len(pb_value) - 4)}\n"
-                for chart in song.charts
-            ])
+            def format_score(score):
+                """Formats the score as a string with 2 digits before and after the decimal point."""
+                if score is not None:
+                    if score == 100 or score == 100.00:
+                        return "100%"
+                    return f"{score:.2f}%"
+                return "00.00%"
+
+            chart_blocks = []
+            for chart in song.charts:
+                # Create the substring for the current chart
+                block = (
+                    f"Lv. {str(chart.difficulty_level).rjust(2)}\n"
+                    f"{str(chart.note_count)} Notes\n"
+                    f"PB: {format_score(user_scores.get(chart.chart_id))}"
+                )
+                # Append spaces to make the block exactly 35 characters
+                chart_blocks.append(block.ljust(block_width))
+
+            return "".join(chart_blocks)
 
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/<int:chart_idx>/notes', methods=['GET'])
         def get_chart_measures(group_idx, song_idx, chart_idx):

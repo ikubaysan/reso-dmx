@@ -92,6 +92,53 @@ class MongoDBClient:
             for score in scores[10:]:
                 self.scores_collection.delete_one({"_id": score["_id"]})
 
+    def get_user_scores_bulk(self, user_id: str, chart_ids: List[str]) -> Dict[str, Optional[float]]:
+        """
+        Fetches scores for a user across multiple chart IDs in a single query.
+
+        This method optimizes performance by querying the database only once to retrieve
+        scores for multiple charts instead of making separate queries for each chart.
+
+        :param user_id: The ID of the user.
+        :param chart_ids: A list of chart GUIDs for which to fetch scores.
+        :return: A dictionary mapping chart IDs to their percentage scores (or None if no score is found).
+
+        Example:
+        Input:
+            user_id = "player1"
+            chart_ids = ["chart1", "chart2", "chart3"]
+
+        MongoDB Query:
+            Finds all documents in the `scores_collection` where:
+            - "user_id" matches the given `user_id`.
+            - "chart_guid" is in the list of provided `chart_ids`.
+
+            Projection:
+            - Only retrieves the "chart_guid" and "percentage_score" fields to optimize the query.
+
+        Output:
+            {
+                "chart1": 98.75,  # Found score
+                "chart2": None,   # No score found
+                "chart3": 87.50   # Found score
+            }
+        """
+        # Perform a query to find scores for the given user and chart IDs
+        results = self.scores_collection.find(
+            {"user_id": user_id, "chart_guid": {"$in": chart_ids}},  # Match criteria
+            {"chart_guid": 1, "percentage_score": 1}  # Projection to include only required fields
+        )
+
+        # Initialize a dictionary with all chart IDs set to None (default for missing scores)
+        scores = {chart_id: None for chart_id in chart_ids}
+
+        # Iterate through query results and map chart IDs to their respective scores
+        for result in results:
+            # For each result, update the score for the corresponding chart ID
+            scores[result["chart_guid"]] = result.get("percentage_score", None)
+
+        return scores
+
     def get_user_score(self, user_id: str, chart_guid: str) -> Optional[Dict[str, Any]]:
         """
         Retrieves a user's score information for a specific chart.
@@ -103,7 +150,6 @@ class MongoDBClient:
         result = self.scores_collection.find_one({"user_id": user_id, "chart_guid": chart_guid})
         return serialize_mongo_document(result)
 
-
     def delete_scores_for_user(self, user_id: str) -> None:
         """
         Deletes all scores for a specific user from the database.
@@ -112,7 +158,6 @@ class MongoDBClient:
         """
         result = self.scores_collection.delete_many({"user_id": user_id})
         logger.info(f"Deleted {result.deleted_count} scores for user '{user_id}'.")
-
 
     def delete_scores_for_chart(self, chart_guid: str) -> None:
         """
