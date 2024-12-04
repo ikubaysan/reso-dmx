@@ -8,6 +8,7 @@ from modules.Config import Config
 from typing import List, Tuple, Optional
 import logging
 import os
+import time
 from modules.utils.Loggers import configure_console_logger
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ class FlaskAppHandler:
 
             POST:
             Adds a score for a specific user and chart.
-            Example URL: /db/score?user_id=player1&group_idx=0&song_idx=1&chart_idx=2&percentage_score=95.5&timestamp=1699999999
+            Example URL: /db/score?user_id=player1&group_idx=0&song_idx=1&chart_idx=2&percentage_score=95.5
 
             GET:
             Retrieves a score for a specific user and chart.
@@ -105,7 +106,6 @@ class FlaskAppHandler:
             :query song_idx: (int) The index of the song in the group.
             :query chart_idx: (int) The index of the chart in the song.
             :query percentage_score: (float, POST only) The score percentage achieved.
-            :query timestamp: (int, POST only) The UNIX timestamp of when the score was achieved.
             :return: JSON response indicating success or the retrieved score.
             """
             user_id = request.args.get('user_id')
@@ -132,7 +132,7 @@ class FlaskAppHandler:
 
             if request.method == 'POST':
                 percentage_score = request.args.get('percentage_score', type=float)
-                timestamp = request.args.get('timestamp', type=int)
+                timestamp = int(time.time())
 
                 # Validate additional parameters for POST
                 post_required_params = {
