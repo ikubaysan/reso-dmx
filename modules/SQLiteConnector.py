@@ -205,7 +205,7 @@ class SQLiteConnector:
             self.conn.commit()
         else:
             cursor.execute("INSERT INTO songs (guid, group_guid, chart_guids, name, title, directory_path, artist, "
-                           "sample_start, sample_length, duration, offset, bpms, stops) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                           "sample_start, sample_length, duration, offset, bpms, stops) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             (song_guid, group_guid, json.dumps(chart_guids), name, title, directory_path, artist,
                              sample_start, sample_length, duration, offset, json.dumps(bpms), json.dumps(stops)))
 
