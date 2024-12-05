@@ -168,6 +168,7 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                                                 artist=song.artist,
                                                 sample_start=song.sample_start,
                                                 sample_length=song.sample_length,
+                                                duration=song.duration,
                                                 offset=song.offset,
                                                 bpms=song.bpms,
                                                 stops=song.stops,
@@ -200,6 +201,8 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                 song.artist = song_info['artist']
                 song.sample_start = song_info['sample_start']
                 song.sample_length = song_info['sample_length']
+                song.set_duration(song_info['duration'])
+
                 song.offset = song_info['offset']
                 song.bpms = song_info['bpms']
 

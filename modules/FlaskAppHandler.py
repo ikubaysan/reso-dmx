@@ -374,7 +374,7 @@ class FlaskAppHandler:
             _, song = self.validate_indices(group_idx, song_idx)
 
             # Fixed width for each chart block
-            block_width = 35
+            block_width = 45
             user_id = request.args.get('user_id')
 
             # Get chart IDs and fetch scores in bulk if user_id is provided
@@ -395,7 +395,7 @@ class FlaskAppHandler:
             for chart in song.charts:
                 # Create the substring for the current chart
                 block = (
-                    f"Lv. {str(chart.difficulty_level).rjust(2)}\n"
+                    f"<b>Lv. {str(chart.difficulty_level).rjust(2)}</b>\n"
                     f"{str(chart.note_count)} Notes\n"
                     f"PB: {format_score(user_scores.get(chart.chart_id))}"
                 )

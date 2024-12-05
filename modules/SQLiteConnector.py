@@ -48,6 +48,7 @@ class SQLiteConnector:
                 artist TEXT,
                 sample_start REAL,
                 sample_length REAL,
+                duration REAL,
                 offset REAL,
                 bpms TEXT,
                 stops TEXT,
@@ -169,10 +170,11 @@ class SQLiteConnector:
             "artist": row[5],
             "sample_start": row[6],
             "sample_length": row[7],
-            "offset": row[8],
-            "bpms": json.loads(row[9]),
-            "stops": json.loads(row[10]),
-            "directory_path": row[11]
+            "duration": row[8],
+            "offset": row[9],
+            "bpms": json.loads(row[10]),
+            "stops": json.loads(row[11]),
+            "directory_path": row[12]
         }
 
 
@@ -185,6 +187,7 @@ class SQLiteConnector:
                     artist: str,
                     sample_start: float,
                     sample_length: float,
+                    duration: float,
                     offset: float,
                     bpms: List[List[float]],
                     stops: List[float],
@@ -202,9 +205,9 @@ class SQLiteConnector:
             self.conn.commit()
         else:
             cursor.execute("INSERT INTO songs (guid, group_guid, chart_guids, name, title, directory_path, artist, "
-                           "sample_start, sample_length, offset, bpms, stops) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                           "sample_start, sample_length, duration, offset, bpms, stops) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             (song_guid, group_guid, json.dumps(chart_guids), name, title, directory_path, artist,
-                             sample_start, sample_length, offset, json.dumps(bpms), json.dumps(stops)))
+                             sample_start, sample_length, duration, offset, json.dumps(bpms), json.dumps(stops)))
 
             self.conn.commit()
             logger.info(f"New song added: {name} (GUID: {song_guid})")

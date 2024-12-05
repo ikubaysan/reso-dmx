@@ -146,6 +146,9 @@ class Song:
                                                                                          'background.png'))]
         self.background = background_files[0] if background_files else None
 
+    def set_duration(self, duration: float):
+        self.duration = duration
+        self.duration_str = format_seconds(duration)
 
 
     def load_song_info_and_charts_from_sm_file_contents(self, sm_file_contents: str):
@@ -181,7 +184,8 @@ class Song:
         self.stops = stops
 
         self.duration = self.get_audio_duration(audio_file_path=self.audio_file_path)
-        self.duration_str = format_seconds(self.duration)
+        self.set_duration(self.duration)
+
         self.create_sample_ogg()
 
         # Remove charts that are not mode "dance-single" (eg. "dance-double")
