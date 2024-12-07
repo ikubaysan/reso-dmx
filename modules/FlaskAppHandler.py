@@ -101,18 +101,23 @@ class FlaskAppHandler:
             GET:
             Retrieves a score for a specific user and chart.
             Example URL: /db/score?user_id=player1&group_idx=0&song_idx=1&chart_idx=2
+            Optional Parameter: 'resonite_string'
+            If 'resonite_string' is provided, the response will be a float percentage (e.g., "95.50%").
+            If no matching score, returns 404.
 
             :query user_id: (str) The ID of the user.
             :query group_idx: (int) The index of the group.
             :query song_idx: (int) The index of the song in the group.
             :query chart_idx: (int) The index of the chart in the song.
             :query percentage_score: (float, POST only) The score percentage achieved.
-            :return: JSON response indicating success or the retrieved score.
+            :query resonite_string: (str, optional) If present, score is returned as float percentage.
+            :return: JSON response or float percentage as string.
             """
             user_id = request.args.get('user_id')
             group_idx = request.args.get('group_idx', type=int)
             song_idx = request.args.get('song_idx', type=int)
             chart_idx = request.args.get('chart_idx', type=int)
+            resonite_string = request.args.get('resonite_string')
 
             # Validate required parameters
             required_params = {
@@ -152,9 +157,21 @@ class FlaskAppHandler:
                 return jsonify({"message": "Score added successfully"})
 
             elif request.method == 'GET':
+                response_type = request.args.get('response_type',
+                                                 default="json").lower()  # Default to "json" and normalize to lowercase
+
                 score = self.mongodb_client.get_user_score(user_id, chart_guid)
                 if score:
-                    return jsonify(score)
+                    if response_type == "resonite":
+                        # Return the score as a formatted percentage string
+                        percentage = f"{score['percentage_score']:.2f}"
+                        return make_response(percentage, 200)
+                    elif response_type == "json":
+                        # Return the default JSON response
+                        return jsonify(score)
+                    else:
+                        # Invalid response_type value
+                        return make_response(f"Invalid response_type: {response_type}. Use 'json' or 'resonite'.", 400)
                 else:
                     return make_response("Score not found", 404)
 

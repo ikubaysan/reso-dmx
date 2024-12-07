@@ -218,7 +218,8 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                 #     song.charts[i].chart_id = chart_guids_from_db[i]
 
                 charts_info = sqlite_db_connector.get_charts_by_song_guid(song.song_id)
-                for chart_info in charts_info:
+                # First 10 charts. Though there should not ever be more than 5 charts per song
+                for chart_info in charts_info[:10]:
                     song.charts.append(
                         Chart(
                             chart_id=chart_info["guid"],
