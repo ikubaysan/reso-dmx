@@ -205,7 +205,11 @@ class MongoDBClient:
                           controller_type: str, controller_buttons: Dict[str, str],
                           visual_timing_offset: float, judgement_timing_offset: float,
                           height_of_notes_area: float, arrow_x_axis_spacing: float,
-                          note_scroll_direction: str) -> None:
+                          note_scroll_direction: str,
+                          combo_text_position: int,
+                          judgement_text_position: int,
+                          background_filter: int,
+                          ) -> None:
         """
         Set or update a user's settings.
 
@@ -231,6 +235,9 @@ class MongoDBClient:
             "height_of_notes_area": height_of_notes_area,
             "arrow_x_axis_spacing": arrow_x_axis_spacing,
             "note_scroll_direction": note_scroll_direction,
+            "background_filter": background_filter,
+            "combo_text_position": combo_text_position,
+            "judgement_text_position": judgement_text_position,
         }
         self.settings_collection.update_one({"user_id": user_id}, {"$set": settings}, upsert=True)
 

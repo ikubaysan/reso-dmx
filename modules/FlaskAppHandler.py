@@ -226,6 +226,10 @@ class FlaskAppHandler:
                 arrow_x_axis_spacing = float(request.args.get('arrow_x_axis_spacing', 0))
                 note_scroll_direction = request.args.get('note_scroll_direction', '')
 
+                combo_text_position = int(request.args.get('combo_text_position', 0))
+                judgement_text_position = int(request.args.get('judgement_text_position', 0))
+                background_filter = int(request.args.get('background_filter', 0))
+
                 # Controller buttons
                 controller_buttons = {
                     "button_0": request.args.get('controller_button_0', ''),
@@ -242,7 +246,8 @@ class FlaskAppHandler:
                 self.mongodb_client.set_user_settings(
                     user_id, scroll_speed, noteskin, controller_type, controller_buttons,
                     visual_timing_offset, judgement_timing_offset,
-                    height_of_notes_area, arrow_x_axis_spacing, note_scroll_direction
+                    height_of_notes_area, arrow_x_axis_spacing, note_scroll_direction,
+                    combo_text_position, judgement_text_position, background_filter
                 )
                 logger.info(f"User settings updated for {user_id}")
                 return jsonify({"message": "User settings updated successfully"})
@@ -270,6 +275,10 @@ class FlaskAppHandler:
                         settings.get("arrow_x_axis_spacing", ""),
                         settings.get("note_scroll_direction", ""),
 
+                        # settings.get("combo_text_position", ""),
+                        # settings.get("judgement_text_position", ""),
+                        # settings.get("background_filter", ""),
+
                         settings["controller_buttons"].get("button_0", ""),
                         settings["controller_buttons"].get("button_1", ""),
                         settings["controller_buttons"].get("button_2", ""),
@@ -279,9 +288,9 @@ class FlaskAppHandler:
                     # and ensure the string is 50 characters long in case the value is greater than 50 characters
                     resonite_string = ''.join(f'{str(value):<50}'[:50] for value in resonite_values)
                     return resonite_string  # Response as plain text
-
-                logger.info(f"User settings retrieved for {user_id}")
-                return jsonify(settings)
+                else:
+                    logger.info(f"User settings retrieved for {user_id}")
+                    return jsonify(settings)
 
     def setup_routes(self):
         self.setup_api_routes()
