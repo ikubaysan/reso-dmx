@@ -275,9 +275,9 @@ class FlaskAppHandler:
                         settings.get("arrow_x_axis_spacing", ""),
                         settings.get("note_scroll_direction", ""),
 
-                        # settings.get("combo_text_position", ""),
-                        # settings.get("judgement_text_position", ""),
-                        # settings.get("background_filter", ""),
+                        settings.get("combo_text_position", ""),
+                        settings.get("judgement_text_position", ""),
+                        settings.get("background_filter", ""),
 
                         settings["controller_buttons"].get("button_0", ""),
                         settings["controller_buttons"].get("button_1", ""),
