@@ -1,7 +1,7 @@
 from typing import List
 import json
 import logging
-
+from natsort import natsorted
 from modules.Music.Beat import precalculate_beats, get_beats_as_resonite_string
 from modules.Music.Chart import Chart
 from modules.Music.Song import Song
@@ -243,5 +243,9 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
     sqlite_db_connector.cleanup_orphaned_records(valid_group_directory_paths,
                                                  valid_song_directory_paths,
                                                  valid_sm_file_paths)
+
+    # Sort groups by name (natural sort)
+    groups = natsorted(groups, key=lambda x: x.name)
+
     return groups
 
