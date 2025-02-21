@@ -17,8 +17,8 @@ class Beat:
         self.arrows_binary_string = arrows_binary_string
 
         self.n_beats_in_measure = n_beats_in_measure
-        # Ensure the number of beats in the measure is always 2 digits
-        self.n_beats_in_measure_str = f"{n_beats_in_measure:02d}"
+        # Ensure the number of beats in the measure is always 3 digits
+        self.n_beats_in_measure_str = f"{n_beats_in_measure:03d}"
 
 
 def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat], int):
