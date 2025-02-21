@@ -15,7 +15,10 @@ class Beat:
 
         self.arrows = arrows if arrows else []
         self.arrows_binary_string = arrows_binary_string
+
         self.n_beats_in_measure = n_beats_in_measure
+        # Ensure the number of beats in the measure is always 2 digits
+        self.n_beats_in_measure_str = f"{n_beats_in_measure:02d}"
 
 
 def precalculate_beats(song, chart, exclude_inactive_beats: bool) -> (List[Beat], int):
@@ -107,7 +110,7 @@ def get_beats_as_resonite_string(beats: List[Beat]) -> str:
     """
     resonite_string = ""
     for beat in beats:
-        resonite_string += f"{beat.time_string_formatted}{beat.arrows_binary_string}"
+        resonite_string += f"{beat.time_string_formatted}{beat.arrows_binary_string}{beat.n_beats_in_measure_str}"
         # resonite_string += f"{beat.normalized_time_string_formatted}{beat.time_string_formatted}{beat.arrows_binary_string}"
         # resonite_string += f"{beat.normalized_time_string_formatted}{beat.arrows_binary_string}"
     return resonite_string
