@@ -1,6 +1,5 @@
 from typing import List, Optional
 import os
-from modules.Music.Note import Note
 from simfile.timing import Beat as SimfileBeat
 from simfile.timing import TimingData
 from simfile.timing.engine import TimingEngine
@@ -8,8 +7,8 @@ from simfile.notes import NoteData
 from simfile.notes.timed import time_notes
 
 
-class Beat:
-    def __init__(self, time: float, beat_fraction: int, arrows_binary_string: str):
+class Note:
+    def __init__(self, time: float, column: int):
         self.time = time
 
         # # pad 4 digits for the whole number part, 7 digits for the decimal part

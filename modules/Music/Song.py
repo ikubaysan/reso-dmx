@@ -1,9 +1,8 @@
-from typing import List, Tuple, Any, Optional
 from modules.Music.Chart import Chart
 from uuid import uuid4
 from modules.utils.FileUtils import read_file_with_encodings
 import os
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Union, Optional
 from mutagen.id3 import ID3
 from mutagen.oggvorbis import OggVorbis
 from mutagen.mp3 import MP3
@@ -13,6 +12,7 @@ from modules.utils.StringUtils import format_seconds
 import logging
 import json
 import simfile
+from simfile import SMSimfile, SSCSimfile
 from simfile.notes import NoteData as SimfileNoteData
 from simfile.timing import Beat as SimfileBeat
 
@@ -162,11 +162,12 @@ class Song:
         """
 
         try:
-            title, artist, sample_start, sample_length, bpms, stops, charts, offset = self.parse_sm_file_contents(sm_file_contents)
+            simfile_data, title, artist, sample_start, sample_length, bpms, stops, charts, offset = self.parse_sm_file_contents(sm_file_contents)
         except Exception as e:
             logger.error(f"Song {self.name} simfile in {self.directory} could not be read: {str(e)}")
             return
 
+        self.simfile_data: Union[SMSimfile, SSCSimfile] = simfile_data
         self.title = title
         self.artist = artist
         self.sample_start = sample_start
@@ -217,6 +218,7 @@ class Song:
 
     @staticmethod
     def parse_sm_file_contents(sm_file_contents: str) -> tuple[
+        Union[SMSimfile, SSCSimfile],
         str, str, float, float, list[Any] | list[tuple[float, ...]], list[Any] | list[tuple[float, ...]], list[
             Chart], float]:
         """
@@ -247,7 +249,7 @@ class Song:
             )
             charts.append(chart)
 
-        return title, artist, sample_start, sample_length, bpms, stops, charts, offset
+        return song_data, title, artist, sample_start, sample_length, bpms, stops, charts, offset
 
     @staticmethod
     def get_audio_duration(audio_file_path: str) -> float:

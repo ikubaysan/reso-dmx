@@ -41,9 +41,8 @@ class MeasureLine:
 
 
 class BeatInfo:
-    def __init__(self, time: float, normalized_time: float, arrows: Optional[List[Arrow]] = None):
+    def __init__(self, time: float, arrows: Optional[List[Arrow]] = None):
         self.time = time
-        self.normalized_time = normalized_time
         self.arrows = arrows if arrows else []
 
 
@@ -113,8 +112,7 @@ class RhythmGame:
                         x = i * HORIZONTAL_SPACING + 100  # Adjust horizontal spacing here
                         arrow = Arrow(x, WINDOW_HEIGHT - ARROW_HEIGHT, time)
                         arrows.append(arrow)
-                normalized_time = time / total_song_duration
-                self.beat_times.append(BeatInfo(time, normalized_time, arrows))
+                self.beat_times.append(BeatInfo(time, arrows))
                 time += time_per_beat
             measure_index += 1
         return
