@@ -175,8 +175,12 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                                                 chart_guids=song.chart_guids)
                 # Then insert charts into the database
                 for chart in song.charts:
+                    try:
+                        beats, note_count = precalculate_beats(song=song, chart=chart, exclude_inactive_beats=True)
+                    except Exception as e:
+                        logger.error(f"Error precalculating beats for chart '{chart.difficulty_name}': {e}")
+                        continue
 
-                    beats, note_count = precalculate_beats(song=song, chart=chart, exclude_inactive_beats=True)
                     resonite_string = get_beats_as_resonite_string(beats)
 
                     chart.note_count = note_count
