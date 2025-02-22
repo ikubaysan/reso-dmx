@@ -16,4 +16,8 @@ def test_get_beats_as_resonite_string():
     selected_song.load_charts_from_sm_file()
     beats = precalculate_beats(song=selected_song, chart=selected_song.charts[1], exclude_inactive_beats=True)
     resonite_string = get_beats_as_resonite_string(beats[0])
+
+
+    # TODO: songs with stops and BPM changes
+
     pass

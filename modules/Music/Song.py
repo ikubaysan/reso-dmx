@@ -12,6 +12,9 @@ from pydub import AudioSegment
 from modules.utils.StringUtils import format_seconds
 import logging
 import json
+import simfile
+from simfile.notes import NoteData as SimfileNoteData
+from simfile.timing import Beat as SimfileBeat
 
 logger = logging.getLogger(__name__)
 current_id = 0
@@ -210,6 +213,8 @@ class Song:
 
         self.load_song_info_and_charts_from_sm_file_contents(sm_file_contents=self.sm_file_contents)
 
+        return
+
     @staticmethod
     def parse_sm_file_contents(sm_file_contents: str) -> tuple[
         str, str, float, float, list[Any] | list[tuple[float, ...]], list[Any] | list[tuple[float, ...]], list[
@@ -219,96 +224,28 @@ class Song:
         :param sm_file_contents: The contents of the SM file as a single string.
         :return: Tuple containing title, artist, sample start, sample length, BPMs, stops, charts, and offset.
         """
-        title = ""
-        artist = ""
-        bpms = []
-        stops = []
+
+        song_data = simfile.loads(string=sm_file_contents, strict=False)
+        title = song_data.title
+        artist = song_data.artist
+        bpms_str = song_data.bpms.strip()
+        bpms = [list(map(float, bpm.split("="))) for bpm in bpms_str.split(",")]
+        sample_length = float(song_data.samplelength)
+        sample_start = float(song_data.samplestart)
+        stops_str = song_data.stops.strip()
+        stops = [tuple(map(float, stop.split("="))) for stop in stops_str.split(",") if stop]
+        offset = float(song_data.offset)
+
         charts = []
-        sample_start = 0.0
-        sample_length = 0.0
-        offset = 0.0  # Initialize offset
-
-        in_notes_section = False
-        current_mode = ""
-        current_difficulty_name = ""
-        current_difficulty_level = None  # Set to None to detect if it’s explicitly set for each chart
-        notes_data = []
-        measures = []
-
-        lines = iter(sm_file_contents.splitlines())
-
-        for line in lines:
-            line = line.strip().lstrip('\ufeff')
-            line_lower = line.lower()
-
-            if line_lower.startswith("#title:"):
-                title = line.split(":")[1].strip().rstrip(';')
-            elif line_lower.startswith("#artist:"):
-                artist = line.split(":")[1].strip().rstrip(';')
-            elif line_lower.startswith("#offset:"):
-                offset = float(line.split(":")[1].strip().rstrip(';'))  # Capture the offset
-            elif line_lower.startswith("#bpms:"):
-                bpms_data = line.split(":", 1)[1].strip()
-                while not bpms_data.endswith(";"):
-                    bpms_data += next(lines).strip()
-                bpms_data = bpms_data.rstrip(";")
-                bpms = [list(map(float, bpm.split("="))) for bpm in bpms_data.split(",")]
-            elif line_lower.startswith("#stops:"):
-                stops_data = line.split(":", 1)[1].strip()
-                while not stops_data.endswith(";"):
-                    stops_data += next(lines).strip()
-                stops_data = stops_data.rstrip(";")
-                if stops_data:
-                    stops = [tuple(map(float, stop.split("="))) for stop in stops_data.split(",") if stop]
-            elif line_lower.startswith("#samplestart:"):
-                sample_start = float(line.split(':')[1].split(';')[0])
-            elif line_lower.startswith("#samplelength:"):
-                sample_length = float(line.split(':')[1].split(';')[0])
-            elif line_lower.startswith("#notes:"):
-                if in_notes_section and current_mode and current_difficulty_name and current_difficulty_level is not None:
-                    chart = Chart(
-                        chart_id=None,
-                        mode=current_mode,
-                        difficulty_name=current_difficulty_name,
-                        difficulty_level=current_difficulty_level,
-                        measures=measures
-                    )
-                    charts.append(chart)
-                    measures = []
-                in_notes_section = True
-                current_difficulty_level = None
-            elif in_notes_section:
-                if line.startswith("dance-single:") or line.startswith("dance-double:"):
-                    current_mode = line.rstrip(':')
-                elif line.endswith(":") and not current_difficulty_name:
-                    current_difficulty_name = line.rstrip(':').strip()
-                elif line[:-1].isdigit() and current_difficulty_level is None:
-                    current_difficulty_level = int(line[:-1])
-                    if current_difficulty_level > 99:
-                        # Ensure difficulty level is only up to 2 digits.
-                        current_difficulty_level = 99
-                elif line.startswith(","):
-                    measures.append(notes_data)
-                    notes_data = []
-                elif line.startswith(";"):
-                    in_notes_section = False
-                    if notes_data:
-                        measures.append(notes_data)
-                    if current_mode and current_difficulty_name and current_difficulty_level is not None:
-                        chart = Chart(
-                            chart_id=None,
-                            mode=current_mode,
-                            difficulty_name=current_difficulty_name,
-                            difficulty_level=current_difficulty_level,
-                            measures=measures
-                        )
-                        charts.append(chart)
-                        current_difficulty_name = ""
-                        current_difficulty_level = None
-                        notes_data = []
-                        measures = []
-                elif len(line) == 4 and all(c in '01234M' for c in line.upper()):
-                    notes_data.append(line)
+        for chart_data in song_data.charts.data:
+            chart = Chart(
+                chart_id=None,
+                mode=chart_data.stepstype,
+                difficulty_name=chart_data.difficulty,
+                difficulty_level=int(chart_data.meter),
+                measures=chart_data.notes
+            )
+            charts.append(chart)
 
         return title, artist, sample_start, sample_length, bpms, stops, charts, offset
 
