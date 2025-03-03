@@ -368,8 +368,9 @@ class FlaskAppHandler:
         def get_chart_levels(group_idx, song_idx):
             _, song = self.validate_indices(group_idx, song_idx)
             # A single string where each difficulty is padded with 0 to be 2 digits
-            return "".join([str(chart.difficulty_level).zfill(2) for chart in song.charts])
+            #return "".join([str(chart.difficulty_level).zfill(2) for chart in song.charts])
 
+            return "/".join(str(chart.difficulty_level) for chart in song.charts)
 
         # route to get a list of difficulty levels with their note counts for a song
         @self.app.route('/groups/<int:group_idx>/songs/<int:song_idx>/charts/chart_levels_and_note_counts',

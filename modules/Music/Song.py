@@ -230,20 +230,31 @@ class Song:
         artist = song_data.artist
         bpms_str = song_data.bpms.strip()
         bpms = [list(map(float, bpm.split("="))) for bpm in bpms_str.split(",")]
-        sample_length = float(song_data.samplelength)
-        sample_start = float(song_data.samplestart)
-        stops_str = song_data.stops.strip()
-        stops = [tuple(map(float, stop.split("="))) for stop in stops_str.split(",") if stop]
-        offset = float(song_data.offset)
+        sample_length = float(song_data.samplelength) if song_data.samplelength else 15.0
+        sample_start = float(song_data.samplestart) if song_data.samplestart else 0.0
+
+        if song_data.stops:
+            stops_str = song_data.stops.strip()
+            stops = [tuple(map(float, stop.split("="))) for stop in stops_str.split(",") if stop]
+        else:
+            stops = []
+
+        offset = float(song_data.offset) if song_data.offset else 0.0
+
+        def parse_string_to_list(input_string):
+            groups = [group.strip().splitlines() for group in input_string.split(',')]
+            return groups
+
 
         charts = []
         for chart_data in song_data.charts.data:
+            measures = parse_string_to_list(chart_data.notes)
             chart = Chart(
                 chart_id=None,
                 mode=chart_data.stepstype,
                 difficulty_name=chart_data.difficulty,
                 difficulty_level=int(chart_data.meter),
-                measures=chart_data.notes
+                measures=measures
             )
             charts.append(chart)
 

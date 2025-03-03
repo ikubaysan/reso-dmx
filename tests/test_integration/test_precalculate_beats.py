@@ -7,10 +7,10 @@ import os
 
 def test_get_beats_as_resonite_string():
     from modules.Music.Song import Song
-    selected_song = Song(name="Scars of Yesterday",
-                         audio_file="Scars of Yesterday.ogg",
-                         sm_file="Scars of Yesterday.sm",
-                         directory=os.path.abspath("../../songs/Dragonforce 2024/Scars of Yesterday"),
+    selected_song = Song(name="Sharkmode",
+                         audio_file="Sharkmode.ogg",
+                         sm_file="Sharkmode.ssc",
+                         directory=os.path.abspath("../../songs/15gays1pack/Sharkmode [Ky_Dash]"),
                          song_id="0"
                          )
     selected_song.load_charts_from_sm_file()
