@@ -17,7 +17,7 @@ class Chart:
         :param mode: "dance-single" or "dance-double"
         :param difficulty_name: "Beginner", "Easy", "Medium", "Hard", "Challenge"
         :param difficulty_level: An integer from 1 to 20
-        :param measures: A list of strings, each string representing a measure containing notes. For example:
+        :param measures: A list of lists of strings, each string representing a measure containing notes. For example:
         [
             ...
             05 = {list: 16} ['0010', '0000', '0000', '0000', '1000', '0000', '0000', '0000', '0010', '0000', '0000', '0000', '0100', '0001', '0100', '0001']

@@ -54,7 +54,8 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                 song_files = os.listdir(song_path)
                 audio_file = next(
                     (f for f in song_files if f.endswith(('.ogg', '.mp3')) and "reso-dmx-sample" not in f), None)
-                sm_file = next((f for f in song_files if f.endswith('.sm')), None)
+                sm_file = next((f for f in song_files if f.endswith(('.sm', '.ssc'))), None)
+                #sm_file = next((f for f in song_files if f.endswith(('.sm'))), None)
 
                 if audio_file and sm_file:
                     sm_file_path = os.path.join(song_path, sm_file)
