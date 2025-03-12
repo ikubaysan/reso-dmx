@@ -138,6 +138,13 @@ class FlaskAppHandler:
 
             if request.method == 'POST':
                 percentage_score = request.args.get('percentage_score', type=float)
+
+                if percentage_score > 100 or percentage_score < 0:
+                    logger.error(f"User '{user_id}' posted an invalid score {percentage_score}% on song "
+                                 f"'{song.title}', difficulty {song.charts[chart_idx].difficulty_name}, "
+                                 f"from group '{group.name}'")
+                    return make_response("Invalid percentage score. Must be between 0 and 100.", 400)
+
                 timestamp = int(time.time())
 
                 # Validate additional parameters for POST
