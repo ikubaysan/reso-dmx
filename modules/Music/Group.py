@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import json
 import logging
 from natsort import natsorted
@@ -21,11 +21,25 @@ class Group:
         self.name = name
         self.songs: List[Song] = []
         self.song_count = 0
+        self.single_songs: List[Song] = []
+        self.double_songs: List[Song] = []
+
+    @property
+    def is_single_group(self) -> bool:
+        # len() is O(1) for lists
+        return len(self.single_songs) > 0
+
+    @property
+    def is_double_group(self) -> bool:
+        return len(self.double_songs) > 0
 
 
-def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> List[Group]:
+
+def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Tuple[List[Group], List[Group], List[Group]]:
     root_directory = os.path.abspath(root_directory)
     groups = []
+    single_groups = []
+    double_groups = []
     valid_sm_file_paths = set()
     valid_song_directory_paths = set()
     valid_group_directory_paths = set()
@@ -192,9 +206,9 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                                                      chart_guid=chart.chart_id,
                                                      song_guid=song.song_id,
                                                      sm_file_path=sm_file_path,
+                                                     mode=chart.mode,
                                                      difficulty_name=chart.difficulty_name,
                                                      difficulty_level=chart.difficulty_level,
-                                                     mode=chart.mode,
                                                      note_count=chart.note_count,
                                                      beats_as_resonite_string=chart.beats_as_resonite_string)
             else:
@@ -225,8 +239,7 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                 charts_info = sqlite_db_connector.get_charts_by_song_guid(song.song_id)
                 # First 10 charts. Though there should not ever be more than 5 charts per song
                 for chart_info in charts_info[:10]:
-                    song.charts.append(
-                        Chart(
+                    chart = Chart(
                             chart_id=chart_info["guid"],
                             difficulty_name=chart_info["difficulty_name"],
                             difficulty_level=chart_info["difficulty_level"],
@@ -235,13 +248,28 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
                             note_count=chart_info["note_count"],
                             beats_as_resonite_string=chart_info["beats_as_resonite_string"]
                         )
-                    )
+                    song.charts.append(chart)
+                    if chart.is_single_chart:
+                        song.single_charts.append(chart)
+                    if chart.is_double_chart:
+                        song.double_charts.append(chart)
 
             valid_sm_file_paths.add(sm_file_path)
             valid_song_directory_paths.add(song.directory)
             group.songs.append(song)
+            if song.is_single_song:
+                group.single_songs.append(song)
+            if song.is_double_song:
+                group.double_songs.append(song)
 
         groups.append(group)
+
+        if group.is_single_group:
+            single_groups.append(group)
+
+        if group.is_double_group:
+            double_groups.append(group)
+
         logger.info(f"Processed group '{group.name}' with {len(group.songs)} songs.")
 
     # Clean up orphaned records
@@ -252,5 +280,5 @@ def find_songs(root_directory: str, sqlite_db_connector: SQLiteConnector) -> Lis
     # Sort groups by name (natural sort)
     groups = natsorted(groups, key=lambda x: x.name)
 
-    return groups
+    return groups, single_groups, double_groups
 

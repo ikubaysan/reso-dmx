@@ -39,8 +39,9 @@ class FlaskAppHandler:
         self.port = port
         self.root_directory = root_directory
 
-        self.groups = find_songs(root_directory=self.root_directory,
-                                 sqlite_db_connector=self.sqlite_db_connector)
+        self.all_groups, self.single_groups, self.double_groups = find_songs(
+                                                                root_directory=self.root_directory,
+                                                                sqlite_db_connector=self.sqlite_db_connector)
 
         self.file_guid_map = {}  # Dictionary to store GUID to file path mapping
         self.setup_routes()
@@ -56,13 +57,15 @@ class FlaskAppHandler:
     def setup_logging(self):
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-        self.logger.info(f"Found {sum(len(group.songs) for group in self.groups)} songs in {len(self.groups)} groups.")
+        self.logger.info(f"Found {sum(len(group.songs) for group in self.single_groups)} songs with single charts in {len(self.single_groups)} groups.")
+        self.logger.info(f"Found {sum(len(group.songs) for group in self.double_groups)} songs with double charts in {len(self.double_groups)} groups.")
+        self.logger.info(f"Found {sum(len(group.songs) for group in self.all_groups)} total songs in {len(self.all_groups)} groups.")
         pass
 
     def validate_indices(self, group_idx, song_idx=None) -> Tuple[Group, Optional[Song]]:
-        if group_idx >= len(self.groups) or group_idx < 0:
+        if group_idx >= len(self.all_groups) or group_idx < 0:
             abort(404)
-        group = self.groups[group_idx]
+        group = self.all_groups[group_idx]
         if song_idx is not None:
             if song_idx >= len(group.songs) or song_idx < 0:
                 abort(404)

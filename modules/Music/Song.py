@@ -42,7 +42,11 @@ class Song:
         self.bpms: List[List[float]] = []  # eg [[0.0, 137.7], [4.0, 138.0]]
         self.min_bpm = 0.0
         self.max_bpm = 0.0
+
         self.charts: List[Chart] = []
+        self.single_charts: List[Chart] = []
+        self.double_charts: List[Chart] = []
+
         self.chart_guids: List[str] = []
         self.duration: float = 0.0  # Song duration in seconds
         self.duration_str: str = ""
@@ -54,6 +58,14 @@ class Song:
         self.detect_background()
         self.loaded = False
         return
+
+    @property
+    def is_single_song(self) -> bool:
+        return len(self.single_charts) > 0
+
+    @property
+    def is_double_song(self) -> bool:
+        return len(self.double_charts) > 0
 
     def get_ogg_audio_file_path(self, original_audio_file_path: str) -> str:
         # If it's already an ogg file, return its path
@@ -192,7 +204,7 @@ class Song:
         self.create_sample_ogg()
 
         # Remove charts that are not mode "dance-single" (eg. "dance-double")
-        self.charts = [chart for chart in charts if chart.mode == "dance-single"]
+        self.charts = [chart for chart in charts if (chart.is_single_chart or chart.is_double_chart)]
 
         # Sort the charts by difficulty level ascending
         self.charts.sort(key=lambda x: x.difficulty_level)

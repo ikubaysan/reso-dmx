@@ -225,9 +225,9 @@ class SQLiteConnector:
                      chart_guid: str,
                      song_guid: str,
                      sm_file_path: str,
+                     mode: str,
                      difficulty_name: str,
                      difficulty_level: int,
-                     mode: str,
                      note_count: int,
                      beats_as_resonite_string: str):
         cursor = self.conn.cursor()

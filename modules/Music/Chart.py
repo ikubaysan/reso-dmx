@@ -42,3 +42,12 @@ class Chart:
         self.beats: List[Beat] = []
         self.beats_as_resonite_string = beats_as_resonite_string
         self.chart_id = chart_id or str(uuid4())
+
+
+    @property
+    def is_single_chart(self) -> bool:
+        return self.mode == "dance-single"
+
+    @property
+    def is_double_chart(self) -> bool:
+        return self.mode == "dance-double"
