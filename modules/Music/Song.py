@@ -203,8 +203,19 @@ class Song:
 
         self.create_sample_ogg()
 
-        # Remove charts that are not mode "dance-single" (eg. "dance-double")
-        self.charts = [chart for chart in charts if (chart.is_single_chart or chart.is_double_chart)]
+        self.charts: List[Chart] = []
+        self.single_charts: List[Chart] = []
+        self.double_charts: List[Chart] = []
+
+        for chart in charts:
+            if chart.is_single_chart:
+                self.single_charts.append(chart)
+            elif chart.is_double_chart:
+                self.double_charts.append(chart)
+            else:
+                # Ignore charts that are not single or double
+                continue
+            self.charts.append(chart)
 
         # Sort the charts by difficulty level ascending
         self.charts.sort(key=lambda x: x.difficulty_level)
